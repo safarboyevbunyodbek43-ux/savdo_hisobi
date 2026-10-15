@@ -104,7 +104,7 @@ tr.be td{background:var(--pri-soft);font-weight:700}
 <body>
 <div id="app">
   <div class="col">
-    <header><h1 id="shopName">Savdo Hisobi</h1><small id="todayLbl"></small></header>
+    <header><h1 id="shopName">Savdo Hisobi</h1><small><span id="cloudSt"></span> <span id="todayLbl"></span></small></header>
     <main><div class="wrap" id="view"></div></main>
   </div>
   <nav id="nav"></nav>
@@ -123,8 +123,9 @@ function load(){
   DB.sales = DB.sales || [];
   DB.capital = DB.capital || [];
   DB.settings = Object.assign({shop:"",margin:20}, DB.settings||{});
+  if(!DB.settings.trialStart){ try{ DB.settings.trialStart = getLic().first; }catch(e){} }
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ toast("Saqlashda xato!"); } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ toast("Saqlashda xato!"); } if(typeof cloudPush==="function") cloudPush(); }
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 /* ============ Yordamchilar ============ */
@@ -159,7 +160,7 @@ function openModal(html, onMount){
   $(".ov",m).addEventListener("mousedown",e=>{ if(e.target.classList.contains("ov")) closeModal(); });
   onMount && onMount($(".sheet",m));
 }
-function closeModal(){ $("#modal").innerHTML=""; }
+function closeModal(){ $("#modal").innerHTML=""; if(typeof needRender!=="undefined" && needRender) softRender(); }
 function confirmBox(text, yes){
   openModal(`<h2>${esc(text)}</h2><div class="row" style="margin-top:16px"><button class="btn sec" id="n">Yo'q</button><button class="btn red" id="y">Ha, o'chirish</button></div>`,
     s=>{ $("#n",s).onclick=closeModal; $("#y",s).onclick=()=>{closeModal();yes();}; });
@@ -173,7 +174,9 @@ function hs(s){let a=0x811c9dc5;for(let i=0;i<s.length;i++){a^=s.charCodeAt(i);a
 const normName=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 function mkCode(name){const n=normName(name);const a=hs(SALT+"|"+n).toString(36).padStart(7,"0"),b=hs(n+"|"+SALT+"|2").toString(36).padStart(7,"0");const c=(a+b).toUpperCase().slice(0,8);return c.slice(0,4)+"-"+c.slice(4);}
 function getLic(){let L=null;try{L=JSON.parse(localStorage.getItem(LKEY));}catch(e){}if(!L||!L.first){L={first:Date.now()};try{localStorage.setItem(LKEY,JSON.stringify(L));}catch(e){}}return L;}
-function licState(){const L=getLic();if(L.name&&L.code&&mkCode(L.name)===L.code)return{ok:true,active:true,name:L.name};const left=TRIAL_DAYS-Math.floor((Date.now()-L.first)/864e5);return{ok:left>0,active:false,left:Math.max(0,left)};}
+function licState(){const L=getLic(),S=DB.settings.license;const okc=x=>x&&x.name&&x.code&&mkCode(x.name)===x.code;
+ if(okc(L))return{ok:true,active:true,name:L.name};if(okc(S))return{ok:true,active:true,name:S.name};
+ const first=Math.min(L.first,DB.settings.trialStart||Infinity);const left=TRIAL_DAYS-Math.floor((Date.now()-first)/864e5);return{ok:left>0,active:false,left:Math.max(0,left)};}
 function actHtml(){return `<label>Do'kon nomi (sotuvchi kodni shu nomga bergan)</label><input id="lnm" placeholder="Masalan: Bunyod savdo">
  <label>Aktivatsiya kodi</label><input id="lcd" placeholder="XXXX-XXXX" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px">
  <button class="btn full" id="lok" style="margin-top:14px">Faollashtirish</button>`;}
@@ -181,10 +184,190 @@ function bindAct(root){$("#lok",root).onclick=()=>{const nm=$("#lnm",root).value
  if(!nm||!cd){toast("Nom va kodni kiriting");return;}
  if(mkCode(nm)!==cd){toast("Kod yoki nom noto'g'ri");return;}
  const L=getLic();L.name=nm;L.code=cd;try{localStorage.setItem(LKEY,JSON.stringify(L));}catch(e){}
- if(!DB.settings.shop){DB.settings.shop=nm;save();}toast("Faollashtirildi ✓");render();};}
+ DB.settings.license={name:nm,code:cd};if(!DB.settings.shop)DB.settings.shop=nm;save();toast("Faollashtirildi ✓");render();};}
 function renderLock(){$("#nav").style.display="none";$("#view").innerHTML=`<div class="card" style="max-width:420px;margin:30px auto"><h3 style="font-size:19px">Sinov muddati tugadi</h3>
  <div class="mut" style="margin-bottom:6px">Davom etish uchun aktivatsiya kodi kerak. Ma'lumotlaringiz saqlanib turibdi — faollashtirgach hammasi qaytadi.</div>
  ${actHtml()}${SELLER_CONTACT?`<div class="note" style="margin-top:14px;margin-bottom:0">Kod olish uchun: <b>${esc(SELLER_CONTACT)}</b></div>`:""}</div>`;bindAct($("#view"));}
+
+/* ============ Bulut (Firebase) — xodimlar uchun umumiy daftar ============ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBhP8FfoXZUxdDYc019xiwzKYUnOgcSUiw",
+  authDomain: "savdo-hisobi-51f92.firebaseapp.com",
+  projectId: "savdo-hisobi-51f92",
+  storageBucket: "savdo-hisobi-51f92.firebasestorage.app",
+  messagingSenderId: "852590572806",
+  appId: "1:852590572806:web:99e5bd37bf92c1d48e5a87"
+};
+const FB_VER = "10.14.1", CKEY = "savdo_cloud_v1";
+const COLS = ["customers","txs","sales","capital","meta"];
+const CL = {id:null,status:"off",ready:false,started:false,fb:null,authOk:false,unsubs:[],seen:{},synced:{},lastFlat:{}};
+const clean = o => JSON.parse(JSON.stringify(o));
+function sj(o){ if(o===null||typeof o!=="object") return JSON.stringify(o); if(Array.isArray(o)) return "["+o.map(sj).join(",")+"]"; return "{"+Object.keys(o).sort().map(k=>JSON.stringify(k)+":"+sj(o[k])).join(",")+"}"; }
+const emptyFlat = () => ({customers:{},txs:{},sales:{},capital:{},meta:{}});
+function flat(d){
+  const o = emptyFlat();
+  d.customers.forEach(c=>{
+    o.customers[c.id] = clean({id:c.id,name:c.name||"",phone:c.phone||"",note:c.note||""});
+    (c.tx||[]).forEach(t=>{ o.txs[t.id] = clean(Object.assign({},t,{cid:c.id})); });
+  });
+  d.sales.forEach(s=>{ o.sales[s.id] = clean(s); });
+  d.capital.forEach(c=>{ o.capital[c.id] = clean(c); });
+  o.meta.settings = clean(d.settings);
+  return o;
+}
+function normCode(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+function fmtCode(id){ return (id||"").replace(/(.{4})/g,"$1-").replace(/-$/,""); }
+function genShopId(){ const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; const r=new Uint8Array(20); crypto.getRandomValues(r); return Array.from(r,x=>A[x%32]).join(""); }
+
+let needRender=false, rt=null;
+function softRender(){
+  const ae=document.activeElement;
+  if($("#modal").innerHTML || (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && $("#view").contains(ae))){ needRender=true; return; }
+  needRender=false; clearTimeout(rt);
+  rt=setTimeout(()=>{ const m=$("main"),y=m.scrollTop; render(); m.scrollTop=y; },120);
+}
+document.addEventListener("focusout",()=>{ if(needRender) setTimeout(softRender,250); });
+
+function setStatus(st){
+  CL.status=st;
+  const e=$("#cloudSt"); if(e){ e.textContent = !CL.id?"" : (st==="online"?"☁✓":"☁…"); e.title = st==="online"?"Bulutga ulangan":"Ulanmoqda / oflayn"; }
+  const f=$("#cloudStatus"); if(f) f.innerHTML = st==="online"?'<span class="up">● Ulangan, sinxron</span>':'<span class="mut">● Oflayn yoki ulanmoqda (internet kelganda o\'zi sinxronlanadi)</span>';
+}
+function rebuildFromSynced(){
+  const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c])), txBy={};
+  Object.values(S.txs||{}).forEach(t=>{ const {cid,...rest}=t; (txBy[cid]=txBy[cid]||[]).push(rest); });
+  DB.customers = Object.values(S.customers||{}).map(d=>{
+    const c=old.get(d.id)||{tx:[]};
+    c.id=d.id; c.name=d.name||""; c.phone=d.phone||""; c.note=d.note||"";
+    c.tx=(txBy[d.id]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.id<b.id?-1:1));
+    return c;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+  DB.sales = Object.values(S.sales||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  DB.capital = Object.values(S.capital||{}).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(S.meta && S.meta.settings) DB.settings = Object.assign({shop:"",margin:20}, S.meta.settings);
+  CL.lastFlat = flat(DB);
+  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){}
+}
+function onCol(col,snap){
+  if(!CL.seen[col]){
+    if(snap.metadata.fromCache && snap.empty) return;   // server javobini kutamiz
+    CL.synced[col]={}; snap.docs.forEach(d=>{ CL.synced[col][d.id]=d.data(); }); CL.seen[col]=true;
+  } else {
+    snap.docChanges().forEach(ch=>{ if(ch.type==="removed") delete CL.synced[col][ch.doc.id]; else CL.synced[col][ch.doc.id]=ch.doc.data(); });
+  }
+  rebuildFromSynced();
+  if(!snap.metadata.fromCache) setStatus("online");
+  softRender();
+}
+function pushDiff(){
+  if(!CL.id || !CL.ready) return;
+  const {F,db}=CL.fb, nf=flat(DB), ops=[];
+  COLS.forEach(col=>{
+    const cur=nf[col], syn=CL.synced[col]||(CL.synced[col]={}), prev=CL.lastFlat[col]||{};
+    Object.keys(cur).forEach(id=>{ if(!syn[id] || sj(syn[id])!==sj(cur[id])){ ops.push(["set",col,id,cur[id]]); syn[id]=cur[id]; } });
+    Object.keys(prev).forEach(id=>{ if(!(id in cur)){ ops.push(["del",col,id]); delete syn[id]; } });
+  });
+  CL.lastFlat=nf;
+  for(let i=0;i<ops.length;i+=400){
+    const b=F.writeBatch(db);
+    ops.slice(i,i+400).forEach(([k,col,id,data])=>{ const ref=F.doc(db,"shops",CL.id,col,id); k==="set"?b.set(ref,data):b.delete(ref); });
+    b.commit().catch(e=>{ console.warn(e); if(e&&e.code==="permission-denied") toast("Bulutga yozishga ruxsat yo'q"); });
+  }
+}
+function cloudPush(){ try{ pushDiff(); }catch(e){ console.warn(e); } }
+
+async function fbInit(){
+  if(!CL.fb){
+    const base="https://www.gstatic.com/firebasejs/"+FB_VER+"/";
+    const [A,F,U]=await Promise.all([import(base+"firebase-app.js"),import(base+"firebase-firestore.js"),import(base+"firebase-auth.js")]);
+    const app=A.initializeApp(FIREBASE_CONFIG), auth=U.getAuth(app);
+    const db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()}),experimentalAutoDetectLongPolling:true});
+    CL.fb={A,F,U,app,auth,db};
+  }
+  if(!CL.authOk){
+    const {U,auth}=CL.fb;
+    await new Promise((res,rej)=>{ let off=null, done=false;
+      off=U.onAuthStateChanged(auth,async u=>{ if(done) return; done=true; if(off) off(); if(u) return res(); try{ await U.signInAnonymously(auth); res(); }catch(e){ rej(e); } }); });
+    CL.authOk=true;
+  }
+  return CL.fb;
+}
+async function cloudStart(){
+  if(!CL.id || CL.started) return;
+  CL.started=true; setStatus("connecting");
+  try{
+    const {F,db}=await fbInit();
+    CL.seen={};
+    CL.unsubs=COLS.map(col=>F.onSnapshot(F.collection(db,"shops",CL.id,col),snap=>onCol(col,snap),err=>{
+      console.warn(err); setStatus("offline");
+      if(err && err.code==="permission-denied") toast("Bulutga ruxsat yo'q (Firestore qoidalarini tekshiring)");
+    }));
+    CL.ready=true; pushDiff();
+  }catch(e){
+    console.warn(e); CL.started=false; CL.ready=false; setStatus("offline"); setTimeout(cloudStart,15000);
+  }
+}
+function cloudStop(){
+  CL.unsubs.forEach(u=>{ try{u();}catch(e){} }); CL.unsubs=[]; CL.id=null; CL.ready=false; CL.started=false; CL.seen={};
+  try{ localStorage.removeItem(CKEY); }catch(e){} setStatus("off");
+}
+window.addEventListener("online",()=>{ if(CL.id) cloudStart(); });
+window.addEventListener("offline",()=>{ if(CL.id) setStatus("offline"); });
+
+async function cloudCreate(){
+  if(!navigator.onLine){ toast("Buning uchun internet kerak"); return; }
+  toast("Daftar yaratilmoqda…");
+  try{ await fbInit(); }catch(e){ console.warn(e); toast("Bulutga ulanib bo'lmadi. Internetni tekshiring."); return; }
+  CL.id=genShopId(); try{ localStorage.setItem(CKEY,CL.id); }catch(e){}
+  CL.synced=emptyFlat(); CL.lastFlat=emptyFlat(); CL.seen={}; CL.started=false; CL.ready=false;
+  await cloudStart();
+  try{ await Promise.race([CL.fb.F.waitForPendingWrites(CL.fb.db), new Promise((_,r)=>setTimeout(r,20000))]); }catch(e){}
+  render(); showCode();
+}
+function showCode(){
+  openModal(`<h2>Daftar kodi</h2><div class="mut" style="font-size:13px">Bu kodni xodimlaringizga bering. Ular Sozlama → «Daftarga qo'shilish» orqali shu kodni kiritadi. Kodni begonalarga bermang!</div>
+   <div class="big" style="font-size:22px;letter-spacing:1px;word-break:break-all" id="ccode">${esc(fmtCode(CL.id))}</div>
+   <div class="row"><button class="btn sec" id="x">Yopish</button><button class="btn" id="cp">Nusxa olish</button></div>`,
+  s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ try{ await navigator.clipboard.writeText(fmtCode(CL.id)); }catch(e){ const r=document.createRange(); r.selectNodeContents($("#ccode",s)); const g=getSelection(); g.removeAllRanges(); g.addRange(r); document.execCommand("copy"); } toast("Nusxa olindi ✓"); }; });
+}
+function joinForm(){
+  openModal(`<h2>Daftarga qo'shilish</h2><div class="mut" style="font-size:13px">Do'kon egasidan olgan daftar kodini kiriting. Bu telefondagi hozirgi ma'lumotlar o'rniga umumiy daftar ochiladi.</div>
+   <label>Daftar kodi</label><input id="jc" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" autocapitalize="characters" style="text-transform:uppercase">
+   <div class="row" style="margin-top:16px"><button class="btn sec" id="x">Bekor</button><button class="btn" id="ok">Qo'shilish</button></div>`,
+  s=>{ $("#x",s).onclick=closeModal; $("#ok",s).onclick=async()=>{
+    const id=normCode($("#jc",s).value); if(id.length<16){ toast("Kod noto'g'ri"); return; }
+    if(!navigator.onLine){ toast("Buning uchun internet kerak"); return; }
+    $("#ok",s).disabled=true; $("#ok",s).textContent="Tekshirilmoqda…";
+    try{
+      const {F,db}=await fbInit();
+      const snap=await F.getDocFromServer(F.doc(db,"shops",id,"meta","settings"));
+      if(!snap.exists()){ toast("Bunday daftar topilmadi"); closeModal(); return; }
+      try{ localStorage.setItem("savdo_before_join",JSON.stringify(DB)); }catch(e){}
+      DB.customers=[]; DB.sales=[]; DB.capital=[];
+      CL.id=id; try{ localStorage.setItem(CKEY,id); }catch(e){}
+      CL.synced=flat(DB); CL.lastFlat=flat(DB); CL.seen={}; CL.started=false; CL.ready=false;
+      closeModal(); await cloudStart(); toast("Qo'shildi ✓ Ma'lumotlar yuklanmoqda…"); render();
+    }catch(e){ console.warn(e); toast("Ulanib bo'lmadi. Internetni tekshiring."); closeModal(); }
+  }; });
+}
+function askBox(text,label,yes){
+  openModal(`<h2>${esc(text)}</h2><div class="row" style="margin-top:16px"><button class="btn sec" id="n">Bekor</button><button class="btn" id="y">${esc(label)}</button></div>`,
+    s=>{ $("#n",s).onclick=closeModal; $("#y",s).onclick=()=>{ closeModal(); yes(); }; });
+}
+function cloudCardHtml(){
+  if(!CL.id) return `<div class="card"><h3>☁ Xodimlar uchun umumiy daftar</h3>
+    <div class="mut" style="font-size:13px;margin-bottom:10px">Do'konda bir necha kishi ishlasa, hammasi bir xil ma'lumotni ko'radi. Telefon almashsa ham ma'lumot yo'qolmaydi. Internet o'chsa ham ishlaydi.</div>
+    <div class="row"><button class="btn" id="cNew">Yangi daftar yaratish (egasi)</button><button class="btn sec" id="cJoin">Daftarga qo'shilish</button></div></div>`;
+  return `<div class="card"><h3>☁ Umumiy daftar yoqilgan</h3><div id="cloudStatus" style="font-size:14px;margin-bottom:10px"></div>
+    <div class="row"><button class="btn sec" id="cShow">Daftar kodini ko'rsatish</button><button class="btn red" id="cOut">Chiqish</button></div></div>`;
+}
+function bindCloud(v){
+  if($("#cNew",v)) $("#cNew",v).onclick=()=>askBox("Hozirgi ma'lumotlaringiz bulutga yuklanadi va yangi umumiy daftar yaratiladi.","Davom etish",cloudCreate);
+  if($("#cJoin",v)) $("#cJoin",v).onclick=joinForm;
+  if($("#cShow",v)) $("#cShow",v).onclick=showCode;
+  if($("#cOut",v)) $("#cOut",v).onclick=()=>confirmBox("Bu telefon umumiy daftardan chiqariladi (ma'lumot shu telefonda qoladi). Davom etasizmi?",()=>{ cloudStop(); render(); });
+  setStatus(CL.status);
+}
 
 /* ============ Navigatsiya ============ */
 const ICONS = {
@@ -571,6 +754,7 @@ function chartSvg(rows,p){
 function viewSet(v){
   v.innerHTML = `
   ${(()=>{const LS=licState();return LS.active?`<div class="note" style="background:var(--pri-soft);color:var(--pri)">✅ Faollashtirilgan: <b>${esc(LS.name)}</b></div>`:`<div class="card"><h3>Sinov: ${LS.left} kun qoldi</h3>${actHtml()}</div>`;})()}
+  ${cloudCardHtml()}
   <div class="card" id="instCard"><h3>Ilovani telefonga / kompyuterga o'rnatish</h3>
     <button class="btn full" id="instBtn" style="display:none">⬇ O'rnatish</button>
     <div class="mut" style="font-size:13px;margin-top:8px"><b>Android (Chrome):</b> ⋮ menyu → «Ilovani o'rnatish» yoki «Bosh ekranga qo'shish».<br><b>iPhone (Safari):</b> «Ulashish» tugmasi → «Bosh ekranga qo'shish».<br><b>Windows (Chrome/Edge):</b> manzil qatoridagi ⬇ belgisi → «O'rnatish».</div></div>
@@ -584,9 +768,10 @@ function viewSet(v){
     <label>Tiklash uchun zaxira matnini shu yerga qo'ying</label><textarea id="rs" rows="3" placeholder="{…}"></textarea>
     <div class="row" style="margin-top:8px"><button class="btn" id="rb">Matndan tiklash</button><button class="btn sec" id="rf">Fayldan tiklash</button></div>
     <input type="file" id="file" accept=".json,application/json" style="display:none"></div>
-  <div class="card"><h3>Xavfli zona</h3><button class="btn red full" id="wipe">Barcha ma'lumotlarni o'chirish</button></div>
+  ${CL.id?"":`<div class="card"><h3>Xavfli zona</h3><button class="btn red full" id="wipe">Barcha ma'lumotlarni o'chirish</button></div>`}
   <div class="mut" style="text-align:center;font-size:12px">Savdo Hisobi · internetsiz ishlaydi</div>`;
   if($("#lok")) bindAct(v);
+  bindCloud(v);
   const ib=$("#instBtn");
   if(window.matchMedia("(display-mode: standalone)").matches){ $("#instCard").style.display="none"; }
   else if(deferredPrompt){ ib.style.display="block"; ib.onclick=async()=>{ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; ib.style.display="none"; }; }
@@ -594,11 +779,16 @@ function viewSet(v){
   $("#bk").onclick=()=>openModal(`<h2>Zaxira matni</h2><div class="mut" style="font-size:13px">Hammasini belgilab nusxa oling va xavfsiz joyga (Telegram «Saved messages») saqlang.</div><textarea id="bt" rows="8" readonly style="margin-top:10px">${esc(JSON.stringify(DB))}</textarea><div class="row" style="margin-top:12px"><button class="btn sec" id="x">Yopish</button><button class="btn" id="cp">Nusxa olish</button></div>`,
     s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ const t=$("#bt",s); t.select(); try{ await navigator.clipboard.writeText(t.value);}catch(e){ document.execCommand("copy"); } toast("Nusxa olindi ✓"); }; });
   $("#fl").onclick=()=>{ const b=new Blob([JSON.stringify(DB)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="savdo-zaxira-"+today()+".json"; document.body.appendChild(a); a.click(); a.remove(); toast("Fayl yuklandi"); };
-  const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ localStorage.setItem(KEY,JSON.stringify(o)); load(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
+  const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ localStorage.setItem(KEY,JSON.stringify(o)); load(); cloudPush(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
   $("#rb").onclick=()=>restore($("#rs").value);
   $("#rf").onclick=()=>$("#file").click();
   $("#file").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>restore(r.result); r.readAsText(f); };
-  $("#wipe").onclick=()=>confirmBox("HAMMA ma'lumot o'chadi. Davom etasizmi?",()=>{ localStorage.removeItem(KEY); load(); render(); });
+  if($("#wipe")) $("#wipe").onclick=()=>confirmBox("HAMMA ma'lumot o'chadi. Davom etasizmi?",()=>{ localStorage.removeItem(KEY); load();
+CL.id=(()=>{try{return localStorage.getItem(CKEY)||null;}catch(e){return null;}})();
+if(CL.id){ CL.synced=flat(DB); CL.lastFlat=flat(DB); }
+render();
+if(CL.id) cloudStart();
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){} });
 }
 
 /* ============ Ishga tushirish ============ */
