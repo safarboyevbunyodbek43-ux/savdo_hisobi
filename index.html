@@ -116,16 +116,15 @@ tr.be td{background:var(--pri-soft);font-weight:700}
 /* ============ Ma'lumotlar ============ */
 const KEY = "savdo_hisobi_v1";
 let DB;
-function load(){
-  try{ DB = JSON.parse(localStorage.getItem(KEY)); }catch(e){ DB = null; }
-  if(!DB || typeof DB!=="object") DB = {};
+function load(raw){
+  DB = (raw && typeof raw==="object") ? raw : {};
   DB.customers = DB.customers || [];
   DB.sales = DB.sales || [];
   DB.capital = DB.capital || [];
   DB.settings = Object.assign({shop:"",margin:20}, DB.settings||{});
   if(!DB.settings.trialStart){ try{ DB.settings.trialStart = getLic().first; }catch(e){} }
 }
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){ toast("Saqlashda xato!"); } if(typeof cloudPush==="function") cloudPush(); }
+function save(){ persistLocal(); if(typeof cloudPush==="function") cloudPush(); }
 const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 
 /* ============ Yordamchilar ============ */
@@ -166,6 +165,37 @@ function confirmBox(text, yes){
     s=>{ $("#n",s).onclick=closeModal; $("#y",s).onclick=()=>{closeModal();yes();}; });
 }
 
+
+/* ============ Telefon xotirasi: IndexedDB (katta hajm uchun) ============ */
+const IDB={db:null};
+function idbOpen(){return new Promise((res,rej)=>{if(!window.indexedDB)return rej(new Error("no idb"));const r=indexedDB.open("savdo_db",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error("blocked"));});}
+function idbGet(k){return new Promise((res,rej)=>{const t=IDB.db.transaction("kv").objectStore("kv").get(k);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error);});}
+function idbPut(k,v){return new Promise((res,rej)=>{const tx=IDB.db.transaction("kv","readwrite");tx.objectStore("kv").put(v,k);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error);});}
+let pt=null;
+function persistLocal(now){
+  clearTimeout(pt);
+  const run=()=>{
+    const ls=()=>{try{localStorage.setItem(KEY,JSON.stringify(DB));}catch(e){toast("Saqlashda xato! Telefon xotirasi to'lgan.");}};
+    if(IDB.db){idbPut(KEY,DB).catch(ls);}else ls();
+  };
+  if(now)run();else pt=setTimeout(run,200);
+}
+window.addEventListener("pagehide",()=>persistLocal(true));
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")persistLocal(true);});
+async function boot(){
+  try{IDB.db=await idbOpen();}catch(e){IDB.db=null;}
+  let raw=null,fromLS=false;
+  if(IDB.db){try{raw=await idbGet(KEY);}catch(e){}}
+  if(!raw){try{const t=localStorage.getItem(KEY);if(t){raw=JSON.parse(t);fromLS=true;}}catch(e){}}
+  load(raw);
+  if(fromLS&&IDB.db){try{await idbPut(KEY,DB);localStorage.removeItem(KEY);}catch(e){}}
+  CL.id=(()=>{try{return localStorage.getItem(CKEY)||null;}catch(e){return null;}})();
+  if(CL.id){CL.synced=flat(DB);CL.lastFlat=flat(DB);}
+  render();
+  if(CL.id)cloudStart();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+}
+
 /* ============ Litsenziya (sinov + aktivatsiya) ============ */
 const SALT="mmXTdPx2VWKjT2", TRIAL_DAYS=7;
 const SELLER_CONTACT="+998 90 558 83 86";
@@ -199,20 +229,21 @@ const FIREBASE_CONFIG = {
   appId: "1:852590572806:web:99e5bd37bf92c1d48e5a87"
 };
 const FB_VER = "10.14.1", CKEY = "savdo_cloud_v1";
-const COLS = ["customers","txs","sales","capital","meta"];
-const CL = {id:null,status:"off",ready:false,started:false,fb:null,authOk:false,unsubs:[],seen:{},synced:{},lastFlat:{}};
+const COLS = ["customers","days","capital","meta"];
+const CL = {id:null,status:"off",ready:false,started:false,fb:null,authOk:false,unsubs:[],seen:{},synced:{},idx:{},lastFlat:{},lastSync:0,lastErr:""};
 const clean = o => JSON.parse(JSON.stringify(o));
 function sj(o){ if(o===null||typeof o!=="object") return JSON.stringify(o); if(Array.isArray(o)) return "["+o.map(sj).join(",")+"]"; return "{"+Object.keys(o).sort().map(k=>JSON.stringify(k)+":"+sj(o[k])).join(",")+"}"; }
-const emptyFlat = () => ({customers:{},txs:{},sales:{},capital:{},meta:{}});
+const emptyFlat = () => ({});
+// Bulutdagi tuzilma: customers/{id} (ichida tx xaritasi) · days/{sana} (ichida s xaritasi) · capital/{id} · meta/settings
 function flat(d){
-  const o = emptyFlat();
+  const o={};
   d.customers.forEach(c=>{
-    o.customers[c.id] = clean({id:c.id,name:c.name||"",phone:c.phone||"",note:c.note||""});
-    (c.tx||[]).forEach(t=>{ o.txs[t.id] = clean(Object.assign({},t,{cid:c.id})); });
+    o["customers/"+c.id]=clean({id:c.id,name:c.name||"",phone:c.phone||"",note:c.note||""});
+    (c.tx||[]).forEach(t=>{ o["customers/"+c.id+"#tx."+t.id]=clean(Object.assign({},t,{cid:c.id})); });
   });
-  d.sales.forEach(s=>{ o.sales[s.id] = clean(s); });
-  d.capital.forEach(c=>{ o.capital[c.id] = clean(c); });
-  o.meta.settings = clean(d.settings);
+  d.sales.forEach(s=>{ o["days/"+s.date+"#s."+s.id]=clean(s); });
+  d.capital.forEach(c=>{ o["capital/"+c.id]=clean(c); });
+  o["meta/settings"]=clean(d.settings);
   return o;
 }
 function normCode(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
@@ -234,27 +265,52 @@ function setStatus(st){
   const f=$("#cloudStatus"); if(f){ const t=CL.lastSync?" · oxirgi yangilanish: "+new Date(CL.lastSync).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"";
     f.innerHTML = st==="online"?'<span class="up">● Ulangan, sinxron</span><span class="mut">'+t+'</span>':'<span class="mut">● Oflayn yoki ulanmoqda</span>'+(CL.lastErr?'<div class="down" style="font-size:12px;margin-top:4px">Xato: '+esc(CL.lastErr)+'</div>':''); }
 }
+function applyDoc(col,id,data){
+  const dk=col+"/"+id; (CL.idx[dk]||[]).forEach(k=>{ delete CL.synced[k]; });
+  const keys=[];
+  if(data){
+    if(col==="customers"){
+      const {tx,...base}=data; CL.synced[dk]=base; keys.push(dk);
+      Object.keys(tx||{}).forEach(tid=>{ const k=dk+"#tx."+tid; CL.synced[k]=Object.assign({},tx[tid],{cid:id}); keys.push(k); });
+    } else if(col==="days"){
+      const m=data.s||{}; Object.keys(m).forEach(sid=>{ const k=dk+"#s."+sid; CL.synced[k]=m[sid]; keys.push(k); });
+    } else { CL.synced[dk]=data; keys.push(dk); }
+  }
+  CL.idx[dk]=keys;
+}
+function dropCol(col){
+  const p=col+"/";
+  Object.keys(CL.synced).forEach(k=>{ if(k.startsWith(p)) delete CL.synced[k]; });
+  Object.keys(CL.idx).forEach(k=>{ if(k.startsWith(p)) delete CL.idx[k]; });
+}
 function rebuildFromSynced(){
-  const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c])), txBy={};
-  Object.values(S.txs||{}).forEach(t=>{ const {cid,...rest}=t; (txBy[cid]=txBy[cid]||[]).push(rest); });
-  DB.customers = Object.values(S.customers||{}).map(d=>{
+  const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c]));
+  const custs=[],txBy={},sales=[],cap=[]; let st=null;
+  for(const k in S){
+    const v=S[k];
+    if(k.startsWith("customers/")){ if(k.indexOf("#tx.")>0){ const {cid,...rest}=v; (txBy[cid]=txBy[cid]||[]).push(rest); } else custs.push(v); }
+    else if(k.startsWith("days/")) sales.push(Object.assign({},v));
+    else if(k.startsWith("capital/")) cap.push(Object.assign({},v));
+    else if(k==="meta/settings") st=v;
+  }
+  DB.customers = custs.map(d=>{
     const c=old.get(d.id)||{tx:[]};
     c.id=d.id; c.name=d.name||""; c.phone=d.phone||""; c.note=d.note||"";
     c.tx=(txBy[d.id]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.id<b.id?-1:1));
     return c;
   }).sort((a,b)=>a.name.localeCompare(b.name));
-  DB.sales = Object.values(S.sales||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
-  DB.capital = Object.values(S.capital||{}).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  if(S.meta && S.meta.settings) DB.settings = Object.assign({shop:"",margin:20}, S.meta.settings);
+  DB.sales = sales.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  DB.capital = cap.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  if(st) DB.settings = Object.assign({shop:"",margin:20}, st);
   CL.lastFlat = flat(DB);
-  try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){}
+  persistLocal();
 }
 function onCol(col,snap){
   if(!CL.seen[col]){
     if(snap.metadata.fromCache && snap.empty) return;   // server javobini kutamiz
-    CL.synced[col]={}; snap.docs.forEach(d=>{ CL.synced[col][d.id]=d.data(); }); CL.seen[col]=true;
+    dropCol(col); snap.docs.forEach(d=>applyDoc(col,d.id,d.data())); CL.seen[col]=true;
   } else {
-    snap.docChanges().forEach(ch=>{ if(ch.type==="removed") delete CL.synced[col][ch.doc.id]; else CL.synced[col][ch.doc.id]=ch.doc.data(); });
+    snap.docChanges().forEach(ch=>applyDoc(col,ch.doc.id,ch.type==="removed"?null:ch.doc.data()));
   }
   rebuildFromSynced();
   CL.lastSync=Date.now(); CL.lastErr="";
@@ -263,16 +319,30 @@ function onCol(col,snap){
 }
 function pushDiff(){
   if(!CL.id || !CL.ready) return;
-  const {F,db}=CL.fb, nf=flat(DB), ops=[];
-  COLS.forEach(col=>{
-    const cur=nf[col], syn=CL.synced[col]||(CL.synced[col]={}), prev=CL.lastFlat[col]||{};
-    Object.keys(cur).forEach(id=>{ if(!syn[id] || sj(syn[id])!==sj(cur[id])){ ops.push(["set",col,id,cur[id]]); syn[id]=cur[id]; } });
-    Object.keys(prev).forEach(id=>{ if(!(id in cur)){ ops.push(["del",col,id]); delete syn[id]; } });
-  });
+  const {F,db}=CL.fb, nf=flat(DB), prev=CL.lastFlat, syn=CL.synced, docs={};
+  const get=(col,id)=>docs[col+"/"+id]||(docs[col+"/"+id]={col,id,payload:{},del:false});
+  const parse=k=>{ const h=k.indexOf("#"), dk=h<0?k:k.slice(0,h), sl=dk.indexOf("/"); return {col:dk.slice(0,sl),id:dk.slice(sl+1),f:h<0?null:k.slice(h+1)}; };
+  for(const k in nf){
+    if(k in syn && sj(syn[k])===sj(nf[k])) continue;
+    const {col,id,f}=parse(k), d=get(col,id);
+    if(!f) Object.assign(d.payload,nf[k]);
+    else if(f.startsWith("tx.")){ const {cid,...rest}=nf[k]; (d.payload.tx=d.payload.tx||{})[f.slice(3)]=rest; }
+    else if(f.startsWith("s.")){ d.payload.date=id; (d.payload.s=d.payload.s||{})[f.slice(2)]=nf[k]; }
+    syn[k]=nf[k];
+  }
+  for(const k in prev){
+    if(k in nf) continue;
+    const {col,id,f}=parse(k), d=get(col,id);
+    if(!f){ if(col==="customers"||col==="capital") d.del=true; }
+    else if(f.startsWith("tx.")) (d.payload.tx=d.payload.tx||{})[f.slice(3)]=F.deleteField();
+    else if(f.startsWith("s.")){ d.payload.date=id; (d.payload.s=d.payload.s||{})[f.slice(2)]=F.deleteField(); }
+    delete syn[k];
+  }
   CL.lastFlat=nf;
-  for(let i=0;i<ops.length;i+=400){
+  const list=Object.values(docs).filter(d=>d.del||Object.keys(d.payload).length);
+  for(let i=0;i<list.length;i+=400){
     const b=F.writeBatch(db);
-    ops.slice(i,i+400).forEach(([k,col,id,data])=>{ const ref=F.doc(db,"shops",CL.id,col,id); k==="set"?b.set(ref,data):b.delete(ref); });
+    list.slice(i,i+400).forEach(d=>{ const ref=F.doc(db,"shops",CL.id,d.col,d.id); if(d.del) b.delete(ref); else b.set(ref,d.payload,{merge:true}); });
     b.commit().catch(e=>{ console.warn(e); if(e&&e.code==="permission-denied") toast("Bulutga yozishga ruxsat yo'q"); });
   }
 }
@@ -348,7 +418,7 @@ function joinForm(){
       const {F,db}=await fbInit();
       const snap=await F.getDocFromServer(F.doc(db,"shops",id,"meta","settings"));
       if(!snap.exists()){ toast("Bunday daftar topilmadi"); closeModal(); return; }
-      try{ localStorage.setItem("savdo_before_join",JSON.stringify(DB)); }catch(e){}
+      try{ if(IDB.db) await idbPut("before_join",DB); }catch(e){}
       DB.customers=[]; DB.sales=[]; DB.capital=[];
       CL.id=id; try{ localStorage.setItem(CKEY,id); }catch(e){}
       CL.synced=flat(DB); CL.lastFlat=flat(DB); CL.seen={}; CL.started=false; CL.ready=false;
@@ -786,22 +856,17 @@ function viewSet(v){
   $("#bk").onclick=()=>openModal(`<h2>Zaxira matni</h2><div class="mut" style="font-size:13px">Hammasini belgilab nusxa oling va xavfsiz joyga (Telegram «Saved messages») saqlang.</div><textarea id="bt" rows="8" readonly style="margin-top:10px">${esc(JSON.stringify(DB))}</textarea><div class="row" style="margin-top:12px"><button class="btn sec" id="x">Yopish</button><button class="btn" id="cp">Nusxa olish</button></div>`,
     s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ const t=$("#bt",s); t.select(); try{ await navigator.clipboard.writeText(t.value);}catch(e){ document.execCommand("copy"); } toast("Nusxa olindi ✓"); }; });
   $("#fl").onclick=()=>{ const b=new Blob([JSON.stringify(DB)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="savdo-zaxira-"+today()+".json"; document.body.appendChild(a); a.click(); a.remove(); toast("Fayl yuklandi"); };
-  const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ localStorage.setItem(KEY,JSON.stringify(o)); load(); cloudPush(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
+  const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ load(o); persistLocal(true); cloudPush(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
   $("#rb").onclick=()=>restore($("#rs").value);
   $("#rf").onclick=()=>$("#file").click();
   $("#file").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>restore(r.result); r.readAsText(f); };
-  if($("#wipe")) $("#wipe").onclick=()=>confirmBox("HAMMA ma'lumot o'chadi. Davom etasizmi?",()=>{ localStorage.removeItem(KEY); load();
-CL.id=(()=>{try{return localStorage.getItem(CKEY)||null;}catch(e){return null;}})();
-if(CL.id){ CL.synced=flat(DB); CL.lastFlat=flat(DB); }
-render();
-if(CL.id) cloudStart();
-try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){} });
+  if($("#wipe")) $("#wipe").onclick=()=>confirmBox("HAMMA ma'lumot o'chadi. Davom etasizmi?",()=>{ load(null); persistLocal(true); render(); });
 }
 
 /* ============ Ishga tushirish ============ */
 let deferredPrompt=null;
 window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; if(tab==="set") render(); });
-load(); render();
+boot();
 if("serviceWorker" in navigator && location.protocol.startsWith("http")){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
 </script>
 </body>
