@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0f766e">
+<title>Smart Shop - Kassa & Qarz daftari</title>
+<style>
+:root{
+  --bg:#f3f5f4;--card:#fff;--ink:#14231f;--mut:#667571;--line:#e1e7e4;
+  --pri:#0f766e;--pri2:#0b5d56;--pri-soft:#e1f3f0;
+  --up:#15803d;--down:#c2271f;--warn:#b45309;--warn-soft:#fef3c7;
+  --key:#f0f3f2;--op:#d8ece9;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1614;--card:#16211e;--ink:#e8f0ed;--mut:#8da39d;--line:#263430;
+  --pri:#2bb3a5;--pri2:#1f8f84;--pri-soft:#173a36;--up:#4ade80;--down:#f87171;--warn:#fbbf24;--warn-soft:#3b2f10;--key:#1e2c28;--op:#1b3a36}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;height:100dvh}
+header{background:var(--pri);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:18px;margin:0;font-weight:700}
+header small{opacity:.85;display:flex;align-items:center;gap:6px}
+main{flex:1;overflow-y:auto;padding:14px 14px 24px;-webkit-overflow-scrolling:touch}
+.wrap{max-width:900px;margin:0 auto}
+nav{display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;color:var(--mut);padding:8px 2px 7px;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;font-weight:600}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--pri)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:15px}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat .l{font-size:12px;color:var(--mut);margin-bottom:4px}
+.stat .v{font-size:19px;font-weight:700;word-break:break-word}
+.up{color:var(--up)}.down{color:var(--down)}.mut{color:var(--mut)}
+button.btn{border:0;border-radius:11px;padding:11px 16px;font-size:15px;font-weight:700;background:var(--pri);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button.btn:active{background:var(--pri2)}
+button.btn.sec{background:var(--pri-soft);color:var(--pri)}
+button.btn.red{background:#fde8e6;color:var(--down)}
+button.btn.sm{padding:7px 11px;font-size:13px;border-radius:9px}
+button.btn.full{width:100%}
+input,select,textarea{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:11px 12px;font-size:16px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--pri);border-color:transparent}
+label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px;font-weight:600}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}.row>.auto{flex:none}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.list>div.item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.list>div.item:last-child{border-bottom:0}
+.item .t{font-weight:600}.item .s{font-size:12px;color:var(--mut)}
+.item.click{cursor:pointer}
+.amt{font-weight:700;white-space:nowrap}
+.empty{text-align:center;color:var(--mut);padding:26px 10px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:8px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-size:11.5px;font-weight:700;text-transform:uppercase}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+.sheet{background:var(--card);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto}
+.toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:#14231f;color:#fff;padding:10px 18px;border-radius:24px;font-size:14px;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.dot{width:8px;height:8px;border-radius:50%;background:#667571;display:inline-block}
+.dot.live{background:#4ade80}
+</style>
+
+<!-- Firebase SDK Kutubxonalari -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+</head>
+<body>
+<div id="app">
+  <div class="col">
+    <header>
+      <h1 id="shopName">Smart Shop</h1>
+      <small><span id="cloudDot" class="dot"></span> <span id="cloudSt">Yuklanmoqda...</span></small>
+    </header>
+    <main><div class="wrap" id="view"></div></main>
+  </div>
+  <nav id="nav"></nav>
+</div>
+<div id="modal"></div>
+
+<script>
+"use strict";
+
+// ⚠️ Firebase loyihangiz ma'lumotlarini bu yerga joylashtiring:
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+// Firebase-ni ishga tushirish
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+const KEY = "smart_shop_v2";
+let DB = { customers: [], sales: [], settings: { shop: "Mening Do'konim", key: "maxfiy_kalit_1" } };
+let activeTab = "kassa"; 
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"'"}[c]));
+const fmt = n => new Intl.NumberFormat('uz-UZ').format(Number(n) || 0);
+const today = () => new Date().toISOString().split('T')[0];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+
+if(localStorage.getItem(KEY)) {
+  try { DB = JSON.parse(localStorage.getItem(KEY)); } catch(e){}
+}
+
+/* ============ Firebase Sinxronizatsiya Tizimi ============ */
+let dbRef = null;
+function initFirebaseSync() {
+  const shopKey = DB.settings.key || "default_shop";
+  if(dbRef) dbRef.off();
+  
+  $("#cloudSt").innerText = "Bog'lanmoqda...";
+  $("#cloudDot").className = "dot";
+
+  dbRef = db.ref("shops/" + shopKey);
+  
+  dbRef.on("value", snapshot => {
+    if(snapshot.exists()) {
+      const cloudData = snapshot.val();
+      DB.customers = cloudData.customers || [];
+      DB.sales = cloudData.sales || [];
+      DB.settings.shop = cloudData.shopName || DB.settings.shop;
+      localStorage.setItem(KEY, JSON.stringify(DB));
+      $("#cloudSt").innerText = "Onlayn";
+      $("#cloudDot").className = "dot live";
+      renderView();
+    } else {
+      pushToCloud();
+    }
+  }, error => {
+    $("#cloudSt").innerText = "Oflayn rejim";
+    $("#cloudDot").className = "dot";
+    showToast("Server bilan aloqa uzildi!");
+  });
+}
+
+function pushToCloud() {
+  const shopKey = DB.settings.key || "default_shop";
+  db.ref("shops/" + shopKey).set({
+    shopName: DB.settings.shop,
+    customers: DB.customers,
+    sales: DB.sales,
+    lastUpdated: Date.now()
+  }).then(() => {
+    $("#cloudSt").innerText = "Onlayn";
+    $("#cloudDot").className = "dot live";
+  }).catch(e => {
+    $("#cloudSt").innerText = "Xato!";
+  });
+}
+
+function syncData() {
+  localStorage.setItem(KEY, JSON.stringify(DB));
+  pushToCloud();
+  renderView();
+}
+
+/* ============ Navigatsiya va Render ============ */
+function switchTab(tabId) {
+  activeTab = tabId;
+  renderNav();
+  renderView();
+  if(tabId === "kassa") setTimeout(() => $("#cashAmt")?.focus(), 50);
+  if(tabId === "debts") setTimeout(() => $("#debtSearch")?.focus(), 50);
+}
+
+function renderNav() {
+  const nav = $("#nav");
+  const tabs = [
+    { id: "kassa", label: "Tezkor Kassa", icon: `<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>` },
+    { id: "debts", label: "Qarz Daftari", icon: `<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>` },
+    { id: "sales", label: "Savdo Tarixi", icon: `<svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>` },
+    { id: "settings", label: "Sozlamalar", icon: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>` }
+  ];
+  nav.innerHTML = tabs.map(t => `<button class="${activeTab===t.id?'on':''}" onclick="switchTab('${t.id}')">${t.icon}<span>${t.label}</span></button>`).join("");
+}
+
+function renderView() {
+  $("#shopName").innerText = DB.settings.shop || "Smart Shop";
+  const view = $("#view");
+  view.innerHTML = "";
+
+  if (activeTab === "kassa") {
+    view.innerHTML = `
+      <div class="card" style="text-align:center; padding: 20px 14px;">
+        <span class="mut" style="font-size:14px">Ushbu oynaga stol kalkulyatoridagi yakuniy summani kiriting:</span>
+        <input type="number" id="cashAmt" inputmode="numeric" placeholder="0" style="font-size: 32px; text-align: center; margin-top:12px; font-weight:700; height:60px">
+        <div class="grid" style="margin-top:16px">
+          <button class="btn" style="height:54px; font-size:16px" onclick="addSale('Naqd')">💵 Naqd Savdo</button>
+          <button class="btn sec" style="height:54px; font-size:16px" onclick="addSale('Plastik')">💳 Plastik Savdo</button>
+        </div>
+        <button class="btn red full" style="margin-top:10px; height:50px; font-size:15px" onclick="openDirectDebtModal()">✍️ Qarzga yozish</button>
+      </div>
+    `;
+  }
+
+  else if (activeTab === "debts") {
+    view.innerHTML = `
+      <div class="card">
+        <div class="spread">
+          <h3>Qarz Daftari</h3>
+          <button class="btn sm" onclick="openNewCustomerModal()">+ Yangi Mijoz</button>
+        </div>
+        <input type="text" id="debtSearch" placeholder="Mijoz ismini qidirish..." oninput="filterDebts()" style="margin-top:10px">
+      </div>
+      <div id="customersList" class="list card"></div>
+    `;
+    filterDebts();
+  }
+
+  else if (activeTab === "sales") {
+    let todaySum = DB.sales.filter(s => s.date === today()).reduce((a, b) => a + b.amount, 0);
+    let totalSum = DB.sales.reduce((a, b) => a + b.amount, 0);
+    view.innerHTML = `
+      <div class="grid" style="margin-bottom: 12px">
+        <div class="stat"><div class="l">Bugun</div><div class="v up">${fmt(todaySum)}</div></div>
+        <div class="stat"><div class="l">Umumiy Savdo</div><div class="v">${fmt(totalSum)}</div></div>
+      </div>
+      <div class="card">
+        <h3>Oxirgi sotuvlar</h3>
+        <div class="list">
+          ${DB.sales.length === 0 ? '<div class="empty">Hozircha sotuvlar yo'q</div>' : 
+            DB.sales.slice().reverse().slice(0, 50).map(s => `
+              <div class="item">
+                <div><div class="t">${esc(s.type)} savdo</div><div class="s">${s.date}</div></div>
+                <div class="amt up">+${fmt(s.amount)}</div>
+              </div>
+            `).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  else if (activeTab === "settings") {
+    view.innerHTML = `
+      <div class="card">
+        <h3>Do'kon Sozlamalari</h3>
+        <label>Do'kon Nomi</label>
+        <input type="text" id="setShop" value="${esc(DB.settings.shop)}">
+        <label>Boshqaruv Maxfiy Kaliti (5 ta telefon uchun bir xil bo'lsin)</label>
+        <input type="text" id="setKey" value="${esc(DB.settings.key)}">
+        <p class="mut" style="font-size:12px; margin-top:4px">Ushbu kalitni boshqa 4 ta telefonga ham yozsangiz, hamma ma'lumotlar bir vaqtda yangilanadi.</p>
+        <button class="btn full" style="margin-top:14px" onclick="saveSettings()">💾 Saqlash va Sinxronlash</button>
+      </div>
+    `;
+  }
+}
+
+/* ============ Kassa Mantiqi ============ */
+function addSale(type) {
+  const amt = parseFloat($("#cashAmt").value);
+  if(!amt || isNaN(amt) || amt <= 0) return showToast("Summani to'g'ri kiriting!");
+  
+  DB.sales.push({ id: uid(), amount: amt, date: today(), type: type });
+  syncData();
+  showToast("Savdo saqlandi!");
+  $("#cashAmt").value = "";
+}
+
+function openDirectDebtModal() {
+  const amt = parseFloat($("#cashAmt").value);
+  if(!amt || isNaN(amt) || amt <= 0) return showToast("Avval summani kiriting!");
+  if(DB.customers.length === 0) return showToast("Qarz daftari bo'sh. Avval mijoz qo'shing!");
+
+  showModal(`
+    <div class="ov" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <h2>Kimning qarziga yozilsin?</h2>
+        <div style="font-size:24px; font-weight:800; color:var(--down); margin:8px 0">${fmt(amt)} so'm</div>
+        <label>Mijozni tanlang</label>
+        <select id="debtCid">
+          ${DB.customers.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}
+        </select>
+        <label>Tovar haqida qisqa izoh</label>
+        <input type="text" id="debtNote" placeholder="Masalan: Un, yog'">
+        <div class="row" style="margin-top:16px">
+          <button class="btn sec full" onclick="closeModal()">Bekor qilish</button>
+          <button class="btn full" onclick="submitDirectDebt(${amt})">Daftarga yozish</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function submitDirectDebt(amt) {
+  const cid = $("#debtCid").value;
+  const note = $("#debtNote").value.trim() || "Tovar";
+  const c = DB.customers.find(x => x.id === cid);
+  if(c) {
+    c.balance = (c.balance || 0) + amt;
+    c.history = c.history || [];
+    c.history.push({ id: uid(), type: "debt", amount: amt, date: today(), note: note });
+    $("#cashAmt").value = "";
+    closeModal();
+    syncData();
+    switchTab("debts");
+    showToast("Qarz daftariga yozildi!");
+  }
+}
+
+/* ============ Qarz Daftari Mantiqi ============ */
+function filterDebts() {
+  const q = ($("#debtSearch")?.value || "").toLowerCase();
+  const list = $("#customersList");
+  if(!list) return;
+
+  const filtered = DB.customers.filter(c => c.name.toLowerCase().includes(q));
+  if(filtered.length === 0) {
+    list.innerHTML = `<div class="empty">Mijoz topilmadi</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => `
+    <div class="item click" onclick="openCustomerDetails('${c.id}')">
+      <div><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone || "Telefon yo'q")}</div></div>
+      <div class="amt ${c.balance>0?'down':'mut'}">${c.balance > 0 ? 'Qarz: ' + fmt(c.balance) : 'Qarzi yo'q'}</div>
+    </div>
+  `).join("");
+}
+
+function openNewCustomerModal() {
+  showModal(`
+    <div class="ov" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <h2>Yangi mijoz qo'shish</h2>
+        <label>Ismi va familiyasi</label>
+        <input type="text" id="newCname" placeholder="Alisher aka">
+        <label>Telefon raqami</label>
+        <input type="text" id="newCphone" placeholder="+998901234567">
+        <button class="btn full" style="margin-top:14px" onclick="saveNewCustomer()">Qo'shish</button>
+      </div>
+    </div>
+  `);
+  setTimeout(() => $("#newCname")?.focus(), 50);
+}
+
+function saveNewCustomer() {
+  const name = $("#newCname").value.trim();
+  const phone = $("#newCphone").value.trim();
+  if(!name) return showToast("Ism yozish majburiy!");
+
+  DB.customers.push({ id: uid(), name: name, phone: phone, balance: 0, history: [] });
+  syncData();
+  closeModal();
+  showToast("Mijoz ro'yxatga qo'shildi!");
+}
+
+function openCustomerDetails(id) {
+  const c = DB.customers.find(x => x.id === id);
+  if(!c) return;
+
+  showModal(`
+    <div class="ov" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <h2>${esc(c.name)}</h2>
+        <p class="mut" style="margin:0 0 10px">${esc(c.phone)}</p>
+        <div class="stat" style="margin-bottom:14px">
+          <div class="l">Umumiy balansi:</div>
+          <div class="v ${c.balance>0?'down':'up'}">${fmt(c.balance)} so'm</div>
+        </div>
+        <div class="grid" style="margin-bottom:14px">
+          <button class="btn red sm" onclick="openActionModal('${id}', 'debt')">+ Qarz berish</button>
+          <button class="btn sm" style="background:#dcfce7; color:var(--up)" onclick="openActionModal('${id}', 'pay')">✓ Pul oldi</button>
+        </div>
+        <button class="btn sec sm full" style="margin-bottom:14px" onclick="sendTelegramReminder('${id}')">✉ Telegramda eslatish</button>
+        <h3>Tarixi</h3>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Sana</th><th>Tur</th><th>Izoh</th><th>Summa</th></tr></thead>
+            <tbody>
+              ${(c.history || []).slice().reverse().map(h => `
+                <tr><td>${h.date}</td><td class="${h.type==='debt'?'down':'up'}">${h.type==='debt'?'Qarz':'To'lov'}</td><td>${esc(h.note)}</td><td>${fmt(h.amount)}</td></tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+function openActionModal(id, type) {
+  showModal(`
+    <div class="ov" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <h2>${type==='debt'?'Qarz yozish':'To'lov olish'}</h2>
+        <label>Summani kiriting</label>
+        <input type="number" id="actAmt" inputmode="numeric" placeholder="0">
+        <label>Izoh</label>
+        <input type="text" id="actNote" placeholder="...">
+        <div class="row" style="margin-top:16px">
+          <button class="btn sec full" onclick="openCustomerDetails('${id}')">Orqaga</button>
+          <button class="btn full" onclick="submitAction('${id}', '${type}')">Saqlash</button>
+        </div>
+      </div>
+    </div>
+  `);
+  setTimeout(() => $("#actAmt")?.focus(), 50);
+}
+
+function submitAction(id, type) {
+  const amt = parseFloat($("#actAmt").value);
+  const note = $("#actNote").value.trim() || (type==='debt'?'Qarz':'To'lov');
+  if(!amt || isNaN(amt) || amt <= 0) return showToast("Summani to'g'ri kiriting!");
+
+  const c = DB.customers.find(x => x.id === id);
+  if(c) {
+    if(type === 'debt') c.balance += amt;
+    else c.balance -= amt;
+    c.history = c.history || [];
+    c.history.push({ id: uid(), type: type, amount: amt, date: today(), note: note });
+    syncData();
+    openCustomerDetails(id);
+    showToast("Muvaffaqiyatli saqlandi!");
+  }
+}
+
+function sendTelegramReminder(id) {
+  const c = DB.customers.find(x => x.id === id);
+  if(!c || c.balance <= 0) return showToast("Mijozning qarzi yo'q!");
+  
+  const text = `Assalomu alaykum, ${c.name}. "${DB.settings.shop}" do'konimizdan qarz daftari bo'yicha hisobingiz ${fmt(c.balance)} so'mni tashkil qilmoqda. Malumot uchun rahmat!`;
+  window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, '_blank');
+}
+
+/* ============ Sozlamalar ============ */
+function saveSettings() {
+  const shop = $("#setShop").value.trim();
+  const key = $("#setKey").value.trim();
+  if(!shop || !key) return showToast("Maydonlarni to'ldiring!");
+
+  DB.settings.shop = shop;
+  DB.settings.key = key;
+  localStorage.setItem(KEY, JSON.stringify(DB));
+  showToast("Sozlamalar saqlandi!");
+  initFirebaseSync();
+}
+
+function showModal(h){ $("#modal").innerHTML = h; }
+function closeModal(){ $("#modal").innerHTML = ""; }
+function showToast(m){
+  const t = document.createElement("div"); t.className = "toast"; t.innerText = m;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2500);
+}
+
+window.onload = function() {
+  switchTab("kassa");
+  initFirebaseSync();
+};
+</script>
+</body>
+</html>
