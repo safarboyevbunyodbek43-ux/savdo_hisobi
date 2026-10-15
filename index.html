@@ -231,7 +231,8 @@ document.addEventListener("focusout",()=>{ if(needRender) setTimeout(softRender,
 function setStatus(st){
   CL.status=st;
   const e=$("#cloudSt"); if(e){ e.textContent = !CL.id?"" : (st==="online"?"☁✓":"☁…"); e.title = st==="online"?"Bulutga ulangan":"Ulanmoqda / oflayn"; }
-  const f=$("#cloudStatus"); if(f) f.innerHTML = st==="online"?'<span class="up">● Ulangan, sinxron</span>':'<span class="mut">● Oflayn yoki ulanmoqda (internet kelganda o\'zi sinxronlanadi)</span>';
+  const f=$("#cloudStatus"); if(f){ const t=CL.lastSync?" · oxirgi yangilanish: "+new Date(CL.lastSync).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"";
+    f.innerHTML = st==="online"?'<span class="up">● Ulangan, sinxron</span><span class="mut">'+t+'</span>':'<span class="mut">● Oflayn yoki ulanmoqda</span>'+(CL.lastErr?'<div class="down" style="font-size:12px;margin-top:4px">Xato: '+esc(CL.lastErr)+'</div>':''); }
 }
 function rebuildFromSynced(){
   const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c])), txBy={};
@@ -256,7 +257,8 @@ function onCol(col,snap){
     snap.docChanges().forEach(ch=>{ if(ch.type==="removed") delete CL.synced[col][ch.doc.id]; else CL.synced[col][ch.doc.id]=ch.doc.data(); });
   }
   rebuildFromSynced();
-  if(!snap.metadata.fromCache) setStatus("online");
+  CL.lastSync=Date.now(); CL.lastErr="";
+  if(!snap.metadata.fromCache) setStatus("online"); else setStatus(CL.status);
   softRender();
 }
 function pushDiff(){
@@ -299,13 +301,17 @@ async function cloudStart(){
     const {F,db}=await fbInit();
     CL.seen={};
     CL.unsubs=COLS.map(col=>F.onSnapshot(F.collection(db,"shops",CL.id,col),snap=>onCol(col,snap),err=>{
-      console.warn(err); setStatus("offline");
+      console.warn(err); CL.lastErr=(err&&(err.code||err.message))||"noma'lum"; setStatus("offline");
       if(err && err.code==="permission-denied") toast("Bulutga ruxsat yo'q (Firestore qoidalarini tekshiring)");
     }));
     CL.ready=true; pushDiff();
   }catch(e){
     console.warn(e); CL.started=false; CL.ready=false; setStatus("offline"); setTimeout(cloudStart,15000);
   }
+}
+function cloudRestart(){
+  CL.unsubs.forEach(u=>{ try{u();}catch(e){} }); CL.unsubs=[]; CL.started=false; CL.ready=false; CL.seen={}; CL.lastErr="";
+  toast("Qayta ulanmoqda…"); cloudStart();
 }
 function cloudStop(){
   CL.unsubs.forEach(u=>{ try{u();}catch(e){} }); CL.unsubs=[]; CL.id=null; CL.ready=false; CL.started=false; CL.seen={};
@@ -359,12 +365,13 @@ function cloudCardHtml(){
     <div class="mut" style="font-size:13px;margin-bottom:10px">Do'konda bir necha kishi ishlasa, hammasi bir xil ma'lumotni ko'radi. Telefon almashsa ham ma'lumot yo'qolmaydi. Internet o'chsa ham ishlaydi.</div>
     <div class="row"><button class="btn" id="cNew">Yangi daftar yaratish (egasi)</button><button class="btn sec" id="cJoin">Daftarga qo'shilish</button></div></div>`;
   return `<div class="card"><h3>☁ Umumiy daftar yoqilgan</h3><div id="cloudStatus" style="font-size:14px;margin-bottom:10px"></div>
-    <div class="row"><button class="btn sec" id="cShow">Daftar kodini ko'rsatish</button><button class="btn red" id="cOut">Chiqish</button></div></div>`;
+    <div class="row"><button class="btn sec" id="cSync">Qayta ulash</button><button class="btn sec" id="cShow">Kodni ko'rsatish</button></div><button class="btn red full" id="cOut" style="margin-top:8px">Daftardan chiqish</button></div>`;
 }
 function bindCloud(v){
   if($("#cNew",v)) $("#cNew",v).onclick=()=>askBox("Hozirgi ma'lumotlaringiz bulutga yuklanadi va yangi umumiy daftar yaratiladi.","Davom etish",cloudCreate);
   if($("#cJoin",v)) $("#cJoin",v).onclick=joinForm;
   if($("#cShow",v)) $("#cShow",v).onclick=showCode;
+  if($("#cSync",v)) $("#cSync",v).onclick=cloudRestart;
   if($("#cOut",v)) $("#cOut",v).onclick=()=>confirmBox("Bu telefon umumiy daftardan chiqariladi (ma'lumot shu telefonda qoladi). Davom etasizmi?",()=>{ cloudStop(); render(); });
   setStatus(CL.status);
 }
