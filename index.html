@@ -526,7 +526,7 @@ const ICONS = {
   stat:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   set:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'
 };
-const TABS = [["calc","Kalkulyator"],["debt","Qarz daftari"],["cap","Kapital"],["stat","Statistika"],["set","Sozlama"]];
+const TABS = [["calc","Savdo"],["debt","Qarz daftari"],["cap","Kapital"],["stat","Statistika"],["set","Sozlama"]];
 let tab = "calc", openCustomer = null, period = "day";
 function renderNav(){
   $("#nav").innerHTML = TABS.map(([k,l])=>`<button data-k="${k}" class="${tab===k?"on":""}">${ICONS[k]}<span>${l}</span></button>`).join("");
@@ -544,95 +544,11 @@ function render(){
   $("main").scrollTop = 0;
 }
 
-/* ============ 1) KALKULYATOR ============ */
-let expr = "", justEq = false, lastRes = null;
-function evalExpr(s){
-  // xavfsiz parser: + - × ÷ %  ()
-  const t = s.replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-").replace(/,/g,".");
-  let i=0;
-  const peek=()=>t[i];
-  function number(){
-    let st=i; while(i<t.length && /[0-9.]/.test(t[i])) i++;
-    if(st===i) throw 0; const n=parseFloat(t.slice(st,i)); if(isNaN(n)) throw 0; return n;
-  }
-  function factor(){
-    if(peek()==="-"){ i++; return -factor(); }
-    if(peek()==="+"){ i++; return factor(); }
-    let n = number();
-    while(peek()==="%"){ i++; n = n/100; }
-    return n;
-  }
-  function term(){
-    let a=factor();
-    while(peek()==="*"||peek()==="/"){
-      const o=t[i++]; const b=factor();
-      a = o==="*"? a*b : a/b;
-    }
-    return a;
-  }
-  function expr_(){
-    let a=term();
-    while(peek()==="+"||peek()==="-"){
-      const o=t[i++];
-      // 200 + 10%  => 200 + 10% от 200
-      const startI=i; let b=term();
-      if(t[i-1]==="%" && /^[0-9.]+%$/.test(t.slice(startI,i))) b = a*b;
-      a = o==="+"? a+b : a-b;
-    }
-    return a;
-  }
-  const r = expr_(); if(i<t.length) throw 0;
-  if(!isFinite(r)) throw 0;
-  return Math.round(r*1e6)/1e6;
-}
-function dispExpr(s){
-  return s.replace(/(\d+)(\.\d*)?/g,(m,a,b)=>a.replace(/\B(?=(\d{3})+(?!\d))/g," ")+(b?","+b.slice(1):""));
-}
-function press(k){
-  if(k==="C"){ expr=""; justEq=false; lastRes=null; }
-  else if(k==="⌫"){ expr=expr.slice(0,-1); justEq=false; }
-  else if(k==="="){ doEq(); return; }
-  else if("+−×÷".includes(k)){
-    if(justEq && lastRes!=null){ expr=String(lastRes); }
-    justEq=false;
-    if(!expr) { if(k==="−") expr="−"; updCalc(); return; }
-    if("+−×÷".includes(expr.slice(-1))) expr=expr.slice(0,-1);
-    expr+=k;
-  } else {
-    if(justEq){ expr=""; justEq=false; }
-    if(k==="."){
-      const last = expr.split(/[+−×÷]/).pop();
-      if(last.includes(".")) return;
-      if(last==="") expr+="0";
-    }
-    if(k==="00" && (expr===""||/[+−×÷]$/.test(expr))) k="0";
-    expr+=k;
-  }
-  updCalc();
-}
-function liveRes(){
-  if(!expr) return "0";
-  try{ return num(evalExpr(expr.replace(/[+−×÷]$/,""))); }catch(e){ return null; }
-}
-function updCalc(){
-  const ex=$("#cEx"), rs=$("#cRs"); if(!ex) return;
-  if(justEq){ ex.textContent = dispExpr(expr)+" ="; rs.textContent = num(lastRes); }
-  else {
-    ex.textContent = dispExpr(expr);
-    const r=liveRes(); rs.textContent = r==null? (expr?"…":"0") : (/[+−×÷%]/.test(expr.replace(/^−/,""))? r : (expr?dispExpr(expr):"0"));
-  }
-}
-function doEq(){
-  if(!expr) return;
-  let r; try{ r = evalExpr(expr.replace(/[+−×÷]$/,"")); }catch(e){ toast("Xato ifoda"); return; }
-  const shown = expr.replace(/[+−×÷]$/,"");
-  lastRes = r; expr = shown; justEq = true; updCalc();
-  if(r>0) askAddSale(r);
-}
+/* ============ 1) SAVDO QO'SHISH ============ */
 function askAddSale(amount){
   const custOpts = DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
   openModal(`
-    <h2>Savdoga qo'shilsinmi?</h2>
+    <h2>Savdoni qo'shish</h2>
     <div class="big">${som(amount)}</div>
     <label>Tannarx (ixtiyoriy) — foyda aniq hisoblanishi uchun</label>
     <input id="sCost" inputmode="decimal" placeholder="Masalan: ${num(Math.round(amount*0.8))}">
@@ -644,7 +560,7 @@ function askAddSale(amount){
       <input id="sNew" placeholder="Yangi mijoz ismi" style="display:none;margin-top:8px">
     </div>
     <label>Izoh (ixtiyoriy)</label><input id="sNote" placeholder="Nima sotildi?">
-    <div class="row" style="margin-top:16px"><button class="btn sec" id="no">Yo'q</button><button class="btn" id="yes">Ha, qo'shish</button></div>`,
+    <div class="row" style="margin-top:16px"><button class="btn sec" id="no">Bekor</button><button class="btn" id="yes">Qo'shish</button></div>`,
   s=>{
     const dBox=$("#debtBox",s), sel=$("#sCust",s), nw=$("#sNew",s);
     if(!DB.customers.length){ sel.value="__new"; nw.style.display="block"; }
@@ -665,7 +581,7 @@ function askAddSale(amount){
         sale.customerId=cid;
       }
       DB.sales.push(sale); save(); closeModal(); toast("Savdoga qo'shildi ✓");
-      expr=""; justEq=false; lastRes=null; render();
+      render();
     };
   });
 }
@@ -674,13 +590,11 @@ function viewCalc(v){
   const ts=DB.sales.filter(s=>s.date===t);
   const tot=ts.reduce((a,s)=>a+s.amount,0), pr=ts.reduce((a,s)=>a+saleProfit(s),0);
   v.innerHTML = `
-  <div class="calc">
-    <div class="disp"><div class="ex" id="cEx"></div><div class="rs" id="cRs">0</div></div>
-    <div class="keys" id="keys">
-      ${["C","⌫","%","÷","7","8","9","×","4","5","6","−","1","2","3","+","00","0",".","="].map(k=>{
-        const c = k==="="?"eq":(k==="C"?"cl":("÷×−+%⌫".includes(k)?"op":""));
-        return `<button class="${c}" data-k="${k}">${k}</button>`;}).join("")}
-    </div>
+  <div class="card" style="max-width:640px;margin:0 auto 12px">
+    <h3>Yangi savdo</h3>
+    <label>Savdo summasi (so'm)</label>
+    <input id="amt" inputmode="numeric" placeholder="Masalan: 45 000" style="font-size:22px;font-weight:700">
+    <button class="btn full" id="addS" style="margin-top:12px;font-size:17px;padding:14px">＋ Savdoga qo'shish</button>
   </div>
   <div style="height:14px"></div>
   <div class="grid g3" style="max-width:640px;margin:0 auto 12px">
@@ -693,27 +607,18 @@ function viewCalc(v){
     <div class="list">${ts.length? ts.slice().reverse().map(s=>`
       <div class="item"><div><div class="t">${som(s.amount)} ${s.customerId?'<span class="badge r">nasiya</span>':''}</div>
       <div class="s">${new Date(s.ts).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}${s.note?" · "+esc(s.note):""}</div></div>
-      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty">Hali savdo yo\'q.<br>Hisoblang va «=» bosing — savdoga qo\'shish so\'raladi.</div>'}</div>
+      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty">Hali savdo yo\'q.<br>Yuqoriga summani yozing va «Savdoga qo\'shish» ni bosing.</div>'}</div>
   </div>`;
-  $("#keys").querySelectorAll("button").forEach(b=>b.onclick=()=>press(b.dataset.k));
+  const ai=$("#amt",v);
+  ai.oninput=()=>{ const d=ai.value.replace(/\D/g,""); ai.value=d.replace(/\B(?=(\d{3})+(?!\d))/g," "); };
+  const go=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return; } askAddSale(n); };
+  $("#addS",v).onclick=go; ai.onkeydown=e=>{ if(e.key==="Enter") go(); };
   v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>askBox("Bu savdo savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{
     const sl=DB.sales.find(x=>x.id===b.dataset.del); if(!sl) return; let rt=null;
     if(sl.customerId){ const c=DB.customers.find(x=>x.id===sl.customerId); if(c){ const i=c.tx.findIndex(t=>t.type==="debt"&&t.amount===sl.amount&&t.date===sl.date); if(i>=0) rt=c.tx.splice(i,1)[0]; } }
     toTrash("sale",som(sl.amount)+" · "+fmtDate(sl.date),{sale:sl,tx:rt,cid:sl.customerId||null});
     DB.sales=DB.sales.filter(x=>x.id!==b.dataset.del); save(); render(); toast("Savatga o'tdi");}));
-  updCalc();
 }
-document.addEventListener("keydown",e=>{
-  if(tab!=="calc" || $("#modal").innerHTML) return;
-  const tg=e.target.tagName; if(tg==="INPUT"||tg==="SELECT"||tg==="TEXTAREA") return;
-  const m={"*":"×","/":"÷","-":"−","+":"+",",":".",".":"."};
-  if(/^[0-9]$/.test(e.key)) press(e.key);
-  else if(m[e.key]){ e.preventDefault(); const k=m[e.key]; k==="."?press("."):press(k); }
-  else if(e.key==="%") press("%");
-  else if(e.key==="Enter"||e.key==="="){ e.preventDefault(); press("="); }
-  else if(e.key==="Backspace") press("⌫");
-  else if(e.key==="Escape"||e.key==="Delete") press("C");
-});
 
 /* ============ 2) QARZ DAFTARI ============ */
 const balance = c => c.tx.reduce((a,t)=>a+(t.type==="debt"?t.amount:-t.amount),0);
