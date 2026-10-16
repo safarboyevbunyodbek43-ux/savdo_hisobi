@@ -121,6 +121,7 @@ function load(raw){
   DB.customers = DB.customers || [];
   DB.sales = DB.sales || [];
   DB.capital = DB.capital || [];
+  DB.trash = DB.trash || [];
   DB.settings = Object.assign({shop:"",margin:20}, DB.settings||{});
   if(!DB.settings.trialStart){ try{ DB.settings.trialStart = getLic().first; }catch(e){} }
 }
@@ -192,6 +193,8 @@ async function boot(){
   CL.id=(()=>{try{return localStorage.getItem(CKEY)||null;}catch(e){return null;}})();
   if(CL.id){CL.synced=flat(DB);CL.lastFlat=flat(DB);}
   render();
+  purgeTrash();
+  autoSnap();
   if(CL.id)cloudStart();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 }
@@ -229,7 +232,7 @@ const FIREBASE_CONFIG = {
   appId: "1:852590572806:web:99e5bd37bf92c1d48e5a87"
 };
 const FB_VER = "10.14.1", CKEY = "savdo_cloud_v1";
-const COLS = ["customers","days","capital","meta"];
+const COLS = ["customers","days","capital","trash","meta"];
 const CL = {id:null,status:"off",ready:false,started:false,fb:null,authOk:false,unsubs:[],seen:{},synced:{},idx:{},lastFlat:{},lastSync:0,lastErr:""};
 const clean = o => JSON.parse(JSON.stringify(o));
 function sj(o){ if(o===null||typeof o!=="object") return JSON.stringify(o); if(Array.isArray(o)) return "["+o.map(sj).join(",")+"]"; return "{"+Object.keys(o).sort().map(k=>JSON.stringify(k)+":"+sj(o[k])).join(",")+"}"; }
@@ -243,6 +246,7 @@ function flat(d){
   });
   d.sales.forEach(s=>{ o["days/"+s.date+"#s."+s.id]=clean(s); });
   d.capital.forEach(c=>{ o["capital/"+c.id]=clean(c); });
+  (d.trash||[]).forEach(t=>{ o["trash/"+t.id]=clean(t); });
   o["meta/settings"]=clean(d.settings);
   return o;
 }
@@ -285,12 +289,13 @@ function dropCol(col){
 }
 function rebuildFromSynced(){
   const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c]));
-  const custs=[],txBy={},sales=[],cap=[]; let st=null;
+  const custs=[],txBy={},sales=[],cap=[],tr=[]; let st=null;
   for(const k in S){
     const v=S[k];
     if(k.startsWith("customers/")){ if(k.indexOf("#tx.")>0){ const {cid,...rest}=v; (txBy[cid]=txBy[cid]||[]).push(rest); } else custs.push(v); }
     else if(k.startsWith("days/")) sales.push(Object.assign({},v));
     else if(k.startsWith("capital/")) cap.push(Object.assign({},v));
+    else if(k.startsWith("trash/")) tr.push(Object.assign({},v));
     else if(k==="meta/settings") st=v;
   }
   DB.customers = custs.map(d=>{
@@ -301,6 +306,7 @@ function rebuildFromSynced(){
   }).sort((a,b)=>a.name.localeCompare(b.name));
   DB.sales = sales.sort((a,b)=>(a.ts||0)-(b.ts||0));
   DB.capital = cap.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  DB.trash = tr.sort((a,b)=>b.ts-a.ts);
   if(st) DB.settings = Object.assign({shop:"",margin:20}, st);
   CL.lastFlat = flat(DB);
   persistLocal();
@@ -385,7 +391,7 @@ function cloudRestart(){
 }
 function cloudStop(){
   CL.unsubs.forEach(u=>{ try{u();}catch(e){} }); CL.unsubs=[]; CL.id=null; CL.ready=false; CL.started=false; CL.seen={};
-  try{ localStorage.removeItem(CKEY); }catch(e){} setStatus("off");
+  try{ localStorage.removeItem(CKEY); localStorage.removeItem(RKEY); }catch(e){} setStatus("off");
 }
 window.addEventListener("online",()=>{ if(CL.id) cloudStart(); });
 window.addEventListener("offline",()=>{ if(CL.id) setStatus("offline"); });
@@ -394,7 +400,7 @@ async function cloudCreate(){
   if(!navigator.onLine){ toast("Buning uchun internet kerak"); return; }
   toast("Daftar yaratilmoqda…");
   try{ await fbInit(); }catch(e){ console.warn(e); toast("Bulutga ulanib bo'lmadi. Internetni tekshiring."); return; }
-  CL.id=genShopId(); try{ localStorage.setItem(CKEY,CL.id); }catch(e){}
+  CL.id=genShopId(); try{ localStorage.setItem(CKEY,CL.id); }catch(e){} setRole("owner");
   CL.synced=emptyFlat(); CL.lastFlat=emptyFlat(); CL.seen={}; CL.started=false; CL.ready=false;
   await cloudStart();
   try{ await Promise.race([CL.fb.F.waitForPendingWrites(CL.fb.db), new Promise((_,r)=>setTimeout(r,20000))]); }catch(e){}
@@ -419,8 +425,8 @@ function joinForm(){
       const snap=await F.getDocFromServer(F.doc(db,"shops",id,"meta","settings"));
       if(!snap.exists()){ toast("Bunday daftar topilmadi"); closeModal(); return; }
       try{ if(IDB.db) await idbPut("before_join",DB); }catch(e){}
-      DB.customers=[]; DB.sales=[]; DB.capital=[];
-      CL.id=id; try{ localStorage.setItem(CKEY,id); }catch(e){}
+      DB.customers=[]; DB.sales=[]; DB.capital=[]; DB.trash=[];
+      CL.id=id; try{ localStorage.setItem(CKEY,id); }catch(e){} setRole("staff");
       CL.synced=flat(DB); CL.lastFlat=flat(DB); CL.seen={}; CL.started=false; CL.ready=false;
       closeModal(); await cloudStart(); toast("Qo'shildi ✓ Ma'lumotlar yuklanmoqda…"); render();
     }catch(e){ console.warn(e); toast("Ulanib bo'lmadi. Internetni tekshiring."); closeModal(); }
@@ -435,6 +441,7 @@ function cloudCardHtml(){
     <div class="mut" style="font-size:13px;margin-bottom:10px">Do'konda bir necha kishi ishlasa, hammasi bir xil ma'lumotni ko'radi. Telefon almashsa ham ma'lumot yo'qolmaydi. Internet o'chsa ham ishlaydi.</div>
     <div class="row"><button class="btn" id="cNew">Yangi daftar yaratish (egasi)</button><button class="btn sec" id="cJoin">Daftarga qo'shilish</button></div></div>`;
   return `<div class="card"><h3>☁ Umumiy daftar yoqilgan</h3><div id="cloudStatus" style="font-size:14px;margin-bottom:10px"></div>
+    ${isStaffPhone()?(isOwner()?"":'<div class="mut" style="font-size:13px;margin-bottom:8px">Egasi mijoz va kapitalni o\'chirishni xodimlarga yopib qo\'ygan.</div><button class="btn sec full" id="cOwn" style="margin-bottom:8px">Egasi huquqini olish</button>'):`<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:8px"><input type="checkbox" id="cLock" ${DB.settings.lockStaff?"checked":""} style="width:auto"> Xodimlar mijoz va kapitalni o'chira olmasin</label>`}
     <div class="row"><button class="btn sec" id="cSync">Qayta ulash</button><button class="btn sec" id="cShow">Kodni ko'rsatish</button></div><button class="btn red full" id="cOut" style="margin-top:8px">Daftardan chiqish</button></div>`;
 }
 function bindCloud(v){
@@ -442,8 +449,73 @@ function bindCloud(v){
   if($("#cJoin",v)) $("#cJoin",v).onclick=joinForm;
   if($("#cShow",v)) $("#cShow",v).onclick=showCode;
   if($("#cSync",v)) $("#cSync",v).onclick=cloudRestart;
+  if($("#cOwn",v)) $("#cOwn",v).onclick=ownerForm;
+  if($("#cLock",v)) $("#cLock",v).onchange=e=>{ DB.settings.lockStaff=e.target.checked; save(); toast(e.target.checked?"Xodimlar o'chira olmaydi":"Cheklov o'chirildi"); };
   if($("#cOut",v)) $("#cOut",v).onclick=()=>confirmBox("Bu telefon umumiy daftardan chiqariladi (ma'lumot shu telefonda qoladi). Davom etasizmi?",()=>{ cloudStop(); render(); });
   setStatus(CL.status);
+}
+
+/* ============ Huquqlar · Savat · Zaxira eslatmasi ============ */
+const RKEY="savdo_role_v1", BKEY="savdo_lastbackup_v1", BSNOOZE="savdo_bksnooze_v1", TRASH_DAYS=30;
+const isStaffPhone=()=>{ if(!CL.id) return false; try{ return localStorage.getItem(RKEY)==="staff"; }catch(e){ return false; } };
+const isOwner=()=> !(DB.settings&&DB.settings.lockStaff&&isStaffPhone());
+function setRole(r){ try{ localStorage.setItem(RKEY,r); }catch(e){} }
+function toTrash(kind,label,data){ DB.trash.push({id:uid(),kind,label,ts:Date.now(),data:clean(data)}); }
+function purgeTrash(){ const lim=Date.now()-TRASH_DAYS*864e5,n=DB.trash.length; DB.trash=DB.trash.filter(t=>t.ts>=lim); if(DB.trash.length!==n) save(); }
+const KIND_UZ={customer:"Mijoz",sale:"Savdo",tx:"Qarz yozuvi",capital:"Kapital"};
+function restoreTrash(id){
+  const t=DB.trash.find(x=>x.id===id); if(!t) return; const d=t.data;
+  if(t.kind==="customer"){ if(DB.customers.some(c=>c.id===d.id)){ toast("Bu mijoz allaqachon bor"); return; } DB.customers.push(d); }
+  else if(t.kind==="sale"){ DB.sales.push(d.sale); if(d.tx&&d.cid){ const c=DB.customers.find(x=>x.id===d.cid); if(c) c.tx.push(d.tx); } }
+  else if(t.kind==="tx"){ const c=DB.customers.find(x=>x.id===d.cid); if(!c){ toast("Avval mijozni savatdan qaytaring"); return; } c.tx.push(d.tx); c.tx.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); }
+  else if(t.kind==="capital"){ DB.capital.push(d); }
+  DB.trash=DB.trash.filter(x=>x.id!==id); save(); render(); toast("Qaytarildi ✓"); trashModal();
+}
+function trashModal(){
+  const L=DB.trash.slice().sort((a,b)=>b.ts-a.ts);
+  openModal(`<h2>🗑 Savat</h2><div class="mut" style="font-size:13px;margin-bottom:8px">O'chirilganlar ${TRASH_DAYS} kun saqlanadi, keyin butunlay o'chadi.</div>
+   ${L.length?`<div class="list">${L.map(t=>`<div class="item"><div><div class="t">${esc(t.label)}</div><div class="s">${KIND_UZ[t.kind]||t.kind} · ${new Date(t.ts).toLocaleDateString("uz")} · ${Math.max(0,TRASH_DAYS-Math.floor((Date.now()-t.ts)/864e5))} kun qoldi</div></div><button class="btn sm" data-r="${t.id}">Qaytarish</button></div>`).join("")}</div>`:'<div class="empty">Savat bo\'sh</div>'}
+   <button class="btn sec full" id="x" style="margin-top:12px">Yopish</button>`,
+  s=>{ $("#x",s).onclick=closeModal; s.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>restoreTrash(b.dataset.r)); });
+}
+function markBackup(){ try{ localStorage.setItem(BKEY,String(Date.now())); }catch(e){} }
+function ownerForm(){
+  openModal(`<h2>Egasi huquqini olish</h2><div class="mut" style="font-size:13px">Mijoz va kapitalni o'chirish faqat egasiga ruxsat. Buning uchun aktivatsiya kodini kiriting.</div>
+   <label>Aktivatsiya kodi</label><input id="oc" placeholder="XXXX-XXXX" style="text-transform:uppercase">
+   <div class="row" style="margin-top:16px"><button class="btn sec" id="x">Bekor</button><button class="btn" id="ok">Tasdiqlash</button></div>`,
+  s=>{ $("#x",s).onclick=closeModal; $("#ok",s).onclick=()=>{
+    const cd=$("#oc",s).value.trim().toUpperCase().replace(/\s/g,""), L=DB.settings.license, nm=(L&&L.name)||DB.settings.shop||"";
+    if(nm&&mkCode(nm)===cd){ setRole("owner"); closeModal(); render(); toast("Egasi huquqi berildi ✓"); } else toast("Kod noto'g'ri");
+  }; });
+}
+
+
+/* ============ Avto-zaxira (har kuni o'zi, telefon ichida) ============ */
+const SNAP_KEEP=7;
+async function snapList(){ if(!IDB.db) return []; return new Promise(res=>{ try{ const r=IDB.db.transaction("kv").objectStore("kv").getAllKeys(); r.onsuccess=()=>res(r.result.filter(k=>String(k).startsWith("snap_")).sort().reverse()); r.onerror=()=>res([]); }catch(e){ res([]); } }); }
+async function snapDelete(k){ return new Promise(res=>{ try{ const tx=IDB.db.transaction("kv","readwrite"); tx.objectStore("kv").delete(k); tx.oncomplete=tx.onerror=tx.onabort=()=>res(); }catch(e){ res(); } }); }
+async function autoSnap(force){
+  if(!IDB.db||!(DB.sales.length||DB.customers.length||DB.capital.length)) return;
+  const key="snap_"+today();
+  try{
+    const L=await snapList();
+    if(!force && L.includes(key)) return;
+    await idbPut(key,JSON.parse(JSON.stringify(DB)));
+    const all=await snapList(); for(const k of all.slice(SNAP_KEEP)) await snapDelete(k);
+  }catch(e){}
+}
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") autoSnap(); });
+async function snapModal(){
+  const L=await snapList();
+  openModal(`<h2>🛟 Avto-zaxira</h2><div class="mut" style="font-size:13px;margin-bottom:8px">Ilova har kuni ma'lumotning nusxasini o'zi saqlaydi (oxirgi ${SNAP_KEEP} kun). Biror narsa buzilsa yoki yo'qolsa, kerakli kunni tanlab qaytaring.</div>
+   ${L.length?`<div class="list">${L.map(k=>`<div class="item"><div><div class="t">${k.slice(5)}</div></div><button class="btn sm" data-s="${k}">Qaytarish</button></div>`).join("")}</div>`:'<div class="empty">Hali zaxira yo\'q (ertaga paydo bo\'ladi)</div>'}
+   <button class="btn sec full" id="x" style="margin-top:12px">Yopish</button>`,
+  s=>{ $("#x",s).onclick=closeModal; s.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.s;
+    confirmBox("Hozirgi ma'lumot shu kundagi nusxa bilan almashtiriladi (hozirgisi ham zaxiraga olinadi). Davom etasizmi?",async()=>{
+      try{ await autoSnap(true); const d=await idbGet(k); if(!d){ toast("Nusxa topilmadi"); return; }
+        const keepSet=DB.settings; load(JSON.parse(JSON.stringify(d))); DB.settings=Object.assign({},DB.settings,{lockStaff:keepSet.lockStaff}); persistLocal(true); save(); render(); toast("Qaytarildi ✓"); }catch(e){ toast("Xato: qaytarib bo'lmadi"); }
+    }); }); });
 }
 
 /* ============ Navigatsiya ============ */
@@ -624,10 +696,11 @@ function viewCalc(v){
       <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty">Hali savdo yo\'q.<br>Hisoblang va «=» bosing — savdoga qo\'shish so\'raladi.</div>'}</div>
   </div>`;
   $("#keys").querySelectorAll("button").forEach(b=>b.onclick=()=>press(b.dataset.k));
-  v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>confirmBox("Bu savdo o'chirilsinmi?",()=>{
-    const s=DB.sales.find(x=>x.id===b.dataset.del);
-    if(s && s.customerId){ const c=DB.customers.find(x=>x.id===s.customerId); if(c){ const i=c.tx.findIndex(t=>t.type==="debt"&&t.amount===s.amount&&t.date===s.date); if(i>=0) c.tx.splice(i,1);} }
-    DB.sales=DB.sales.filter(x=>x.id!==b.dataset.del); save(); render();}));
+  v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>askBox("Bu savdo savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{
+    const sl=DB.sales.find(x=>x.id===b.dataset.del); if(!sl) return; let rt=null;
+    if(sl.customerId){ const c=DB.customers.find(x=>x.id===sl.customerId); if(c){ const i=c.tx.findIndex(t=>t.type==="debt"&&t.amount===sl.amount&&t.date===sl.date); if(i>=0) rt=c.tx.splice(i,1)[0]; } }
+    toTrash("sale",som(sl.amount)+" · "+fmtDate(sl.date),{sale:sl,tx:rt,cid:sl.customerId||null});
+    DB.sales=DB.sales.filter(x=>x.id!==b.dataset.del); save(); render(); toast("Savatga o'tdi");}));
   updCalc();
 }
 document.addEventListener("keydown",e=>{
@@ -682,7 +755,7 @@ function viewCustomer(v){
   <button class="btn sec sm" id="back">← Orqaga</button>
   <div class="card" style="margin-top:12px">
     <div class="spread"><div><div style="font-size:20px;font-weight:800">${esc(c.name)}</div><div class="mut">${esc(c.phone||"")}</div></div>
-    <div><button class="btn sec sm" id="edit">Tahrir</button> <button class="btn red sm" id="delC">O'chirish</button></div></div>
+    <div><button class="btn sec sm" id="edit">Tahrir</button> ${isOwner()?`<button class="btn red sm" id="delC">O'chirish</button>`:""}</div></div>
     <div class="mut" style="margin-top:12px;font-size:12px">Hozirgi qarz</div>
     <div style="font-size:30px;font-weight:800" class="${b>0?"down":"up"}">${b>=0?som(b):"+"+som(-b)+" ortiqcha"}</div>
     <div class="row" style="margin-top:14px"><button class="btn" id="bDebt" style="background:var(--down)">+ Qarz berish</button><button class="btn" id="bPay">Qarz to'lash</button></div>
@@ -692,9 +765,9 @@ function viewCustomer(v){
     <div style="text-align:right"><div class="amt ${t.type==="debt"?"down":"up"}">${t.type==="debt"?"+":"−"}${num(t.amount)}</div><button class="btn red sm" data-t="${t.id}" style="margin-top:4px;padding:3px 9px">✕</button></div></div>`).join("") : '<div class="empty">Yozuvlar yo\'q</div>'}</div></div>`;
   $("#back").onclick=()=>{openCustomer=null;render();};
   $("#edit").onclick=()=>customerForm(c);
-  $("#delC").onclick=()=>confirmBox(`«${c.name}» va uning barcha yozuvlari o'chirilsinmi?`,()=>{DB.customers=DB.customers.filter(x=>x.id!==c.id);save();openCustomer=null;render();});
+  if($("#delC")) $("#delC").onclick=()=>askBox(`«${c.name}» va uning barcha yozuvlari savatga o'tkaziladi (30 kun ichida qaytarish mumkin).`,"Savatga o'tkazish",()=>{toTrash("customer",c.name+" (qarz "+num(balance(c))+")",c);DB.customers=DB.customers.filter(x=>x.id!==c.id);save();openCustomer=null;render();toast("Savatga o'tdi");});
   $("#bDebt").onclick=()=>txForm(c,"debt"); $("#bPay").onclick=()=>txForm(c,"pay",b>0?b:0);
-  v.querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>confirmBox("Yozuv o'chirilsinmi?",()=>{c.tx=c.tx.filter(t=>t.id!==x.dataset.t);save();render();}));
+  v.querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>askBox("Bu yozuv savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{const t=c.tx.find(q=>q.id===x.dataset.t); if(t) toTrash("tx",(t.type==="debt"?"Qarz ":"To'lov ")+num(t.amount)+" · "+c.name,{cid:c.id,tx:t}); c.tx=c.tx.filter(q=>q.id!==x.dataset.t);save();render();toast("Savatga o'tdi");}));
 }
 function txForm(c,type,pre){
   openModal(`<h2>${type==="debt"?"Qarz berish":"Qarz to'lovi"} — ${esc(c.name)}</h2>
@@ -747,7 +820,7 @@ function viewCap(v){
   <div style="height:12px"></div>
   <div class="card"><h3>Tikilgan pullar</h3><div class="list">${DB.capital.length? DB.capital.slice().sort((a,b)=>a.date<b.date?1:-1).map(c=>`
     <div class="item"><div><div class="t">${fmtDate(c.date)}</div><div class="s">${esc(c.note||"")}</div></div>
-    <div class="row auto" style="flex:none"><div class="amt">${som(c.amount)}</div><button class="btn red sm auto" data-d="${c.id}">✕</button></div></div>`).join("") : '<div class="empty">Hali kapital kiritilmagan</div>'}</div></div>
+    <div class="row auto" style="flex:none"><div class="amt">${som(c.amount)}</div>${isOwner()?`<button class="btn red sm auto" data-d="${c.id}">✕</button>`:""}</div></div>`).join("") : '<div class="empty">Hali kapital kiritilmagan</div>'}</div></div>
   <div class="card"><h3>Kunma-kun jadval</h3><div class="scroll"><table>
     <thead><tr><th>Sana</th><th>Tikildi</th><th>Savdo</th><th>Foyda</th><th>Jami tikilgan</th><th>Jami foyda</th><th>Natija</th></tr></thead>
     <tbody>${R.arr.length? R.arr.slice().reverse().map(r=>`<tr class="${r.d===R.be?"be":""}"><td>${fmtDate(r.d)}${r.d===R.be?" ✅":""}</td><td>${r.cap?num(r.cap):"—"}</td><td>${r.sales?num(r.sales):"—"}</td><td class="up">${r.profit?num(r.profit):"—"}</td><td>${num(r.cumCap)}</td><td>${num(r.cumProfit)}</td><td class="${r.net>=0?"up":"down"}">${r.net>=0?"+":""}${num(r.net)}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">Ma\'lumot yo\'q</td></tr>'}</tbody></table></div>
@@ -760,7 +833,7 @@ function viewCap(v){
     s=>{ $("#ka",s).focus(); $("#x",s).onclick=closeModal;
       $("#ok",s).onclick=()=>{ const a=val($("#ka",s)); if(a<=0){toast("Summani kiriting");return;}
         DB.capital.push({id:uid(),date:$("#kd",s).value||today(),amount:a,note:$("#kn",s).value.trim()}); save(); closeModal(); render(); }; });
-  v.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>confirmBox("Bu yozuv o'chirilsinmi?",()=>{DB.capital=DB.capital.filter(c=>c.id!==b.dataset.d);save();render();}));
+  v.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>askBox("Bu yozuv savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{const c=DB.capital.find(q=>q.id===b.dataset.d); if(c) toTrash("capital",som(c.amount)+" · "+fmtDate(c.date),c); DB.capital=DB.capital.filter(q=>q.id!==b.dataset.d);save();render();toast("Savatga o'tdi");}));
 }
 
 /* ============ 4) STATISTIKA ============ */
@@ -832,6 +905,8 @@ function viewSet(v){
   v.innerHTML = `
   ${(()=>{const LS=licState();return LS.active?`<div class="note" style="background:var(--pri-soft);color:var(--pri)">✅ Faollashtirilgan: <b>${esc(LS.name)}</b></div>`:`<div class="card"><h3>Sinov: ${LS.left} kun qoldi</h3>${actHtml()}</div>`;})()}
   ${cloudCardHtml()}
+  <div class="card"><h3>🗑 Savat</h3><div class="mut" style="font-size:13px;margin-bottom:10px">O'chirilgan mijoz, savdo va yozuvlarni ${TRASH_DAYS} kun ichida qaytarish mumkin.</div><button class="btn sec full" id="trBtn">Savatni ochish (${DB.trash.length})</button></div>
+  <div class="card"><h3>🛟 Avto-zaxira</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Ilova har kuni o'zi nusxa saqlaydi. Hech narsa qilish shart emas.</div><button class="btn sec full" id="snBtn">Zaxiralarni ko'rish</button></div>
   <div class="card" id="instCard"><h3>Ilovani telefonga / kompyuterga o'rnatish</h3>
     <button class="btn full" id="instBtn" style="display:none">⬇ O'rnatish</button>
     <div class="mut" style="font-size:13px;margin-top:8px"><b>Android (Chrome):</b> ⋮ menyu → «Ilovani o'rnatish» yoki «Bosh ekranga qo'shish».<br><b>iPhone (Safari):</b> «Ulashish» tugmasi → «Bosh ekranga qo'shish».<br><b>Windows (Chrome/Edge):</b> manzil qatoridagi ⬇ belgisi → «O'rnatish».</div></div>
@@ -849,13 +924,15 @@ function viewSet(v){
   <div class="mut" style="text-align:center;font-size:12px">Savdo Hisobi · internetsiz ishlaydi</div>`;
   if($("#lok")) bindAct(v);
   bindCloud(v);
+  $("#trBtn").onclick=trashModal;
+  $("#snBtn").onclick=snapModal;
   const ib=$("#instBtn");
   if(window.matchMedia("(display-mode: standalone)").matches){ $("#instCard").style.display="none"; }
   else if(deferredPrompt){ ib.style.display="block"; ib.onclick=async()=>{ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; ib.style.display="none"; }; }
   $("#sv").onclick=()=>{ DB.settings.shop=$("#shop").value.trim(); DB.settings.margin=Math.max(0,Math.min(100,val($("#mg")))); save(); render(); toast("Saqlandi ✓"); };
   $("#bk").onclick=()=>openModal(`<h2>Zaxira matni</h2><div class="mut" style="font-size:13px">Hammasini belgilab nusxa oling va xavfsiz joyga (Telegram «Saved messages») saqlang.</div><textarea id="bt" rows="8" readonly style="margin-top:10px">${esc(JSON.stringify(DB))}</textarea><div class="row" style="margin-top:12px"><button class="btn sec" id="x">Yopish</button><button class="btn" id="cp">Nusxa olish</button></div>`,
-    s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ const t=$("#bt",s); t.select(); try{ await navigator.clipboard.writeText(t.value);}catch(e){ document.execCommand("copy"); } toast("Nusxa olindi ✓"); }; });
-  $("#fl").onclick=()=>{ const b=new Blob([JSON.stringify(DB)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="savdo-zaxira-"+today()+".json"; document.body.appendChild(a); a.click(); a.remove(); toast("Fayl yuklandi"); };
+    s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ const t=$("#bt",s); t.select(); try{ await navigator.clipboard.writeText(t.value);}catch(e){ document.execCommand("copy"); } markBackup(); toast("Nusxa olindi ✓"); }; });
+  $("#fl").onclick=()=>{ const b=new Blob([JSON.stringify(DB)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="savdo-zaxira-"+today()+".json"; document.body.appendChild(a); a.click(); a.remove(); markBackup(); toast("Fayl yuklandi"); };
   const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ load(o); persistLocal(true); cloudPush(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
   $("#rb").onclick=()=>restore($("#rs").value);
   $("#rf").onclick=()=>$("#file").click();
