@@ -160,6 +160,8 @@ function load(raw){
   DB.sales = DB.sales || [];
   DB.capital = DB.capital || [];
   DB.trash = DB.trash || [];
+  DB.stock = DB.stock || [];
+  DB.miss = DB.miss || [];
   DB.settings = Object.assign({shop:"",margin:20}, DB.settings||{});
   if(!DB.settings.trialStart){ try{ DB.settings.trialStart = getLic().first; }catch(e){} }
 }
@@ -287,6 +289,7 @@ function flat(d){
   d.capital.forEach(c=>{ o["capital/"+c.id]=clean(c); });
   (d.trash||[]).forEach(t=>{ o["trash/"+t.id]=clean(t); });
   o["meta/settings"]=clean(d.settings);
+  o["meta/stock"]=clean({list:d.stock||[],miss:d.miss||[]});
   return o;
 }
 function normCode(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
@@ -328,7 +331,7 @@ function dropCol(col){
 }
 function rebuildFromSynced(){
   const S=CL.synced, old=new Map(DB.customers.map(c=>[c.id,c]));
-  const custs=[],txBy={},sales=[],cap=[],tr=[]; let st=null;
+  const custs=[],txBy={},sales=[],cap=[],tr=[]; let st=null, sk=null;
   for(const k in S){
     const v=S[k];
     if(k.startsWith("customers/")){ if(k.indexOf("#tx.")>0){ const {cid,...rest}=v; (txBy[cid]=txBy[cid]||[]).push(rest); } else custs.push(v); }
@@ -336,6 +339,7 @@ function rebuildFromSynced(){
     else if(k.startsWith("capital/")) cap.push(Object.assign({},v));
     else if(k.startsWith("trash/")) tr.push(Object.assign({},v));
     else if(k==="meta/settings") st=v;
+    else if(k==="meta/stock") sk=v;
   }
   DB.customers = custs.map(d=>{
     const c=old.get(d.id)||{tx:[]};
@@ -347,6 +351,7 @@ function rebuildFromSynced(){
   DB.capital = cap.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   DB.trash = tr.sort((a,b)=>b.ts-a.ts);
   if(st) DB.settings = Object.assign({shop:"",margin:20}, st);
+  if(sk){ DB.stock=sk.list||[]; DB.miss=sk.miss||[]; }
   CL.lastFlat = flat(DB);
   persistLocal();
 }
@@ -561,6 +566,7 @@ async function snapModal(){
 /* ============ Tanishtiruv (birinchi ochilishda) ============ */
 const IKEY="savdo_intro_v1";
 const INTRO=[
+ ["📦","Ombor: nima tugaganini oldindan biling","Tovar va sonini yozing. Qolgani oz bo'lsa, ilova bosh sahifada ogohlantiradi. Mijoz so'rab «yo'q» bo'lsa, uni yozib qo'ying, qaysi mol kerakligini bilasiz."],
  ["🛒","Savdoni yozing","Har bir savdo summasini yozing va «Savdoga qo'shish» ni bosing. Nasiyaga bersangiz, mijozni tanlang. Qarz o'zi daftarga tushadi."],
  ["📒","Qarz daftari","Kim qancha qarz ekani doim ko'z oldingizda. Mijoz qarzini qaytarsa, «To'lov» yozasiz. Qog'ozdagi daftar kerak emas."],
  ["📈","Foyda va statistika","Bugun, shu hafta va shu oyda qancha sotdingiz va qancha foyda qildingiz. O'tgan davr bilan solishtirish ham bor."],
@@ -583,9 +589,10 @@ const ICONS = {
   debt:'<svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5M9 8h6M9 12h6"/></svg>',
   cap:'<svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
   stat:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  box:'<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
   set:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'
 };
-const TABS = [["calc","Savdo"],["debt","Qarz daftari"],["cap","Kapital"],["stat","Statistika"],["set","Sozlama"]];
+const TABS = [["calc","Savdo"],["debt","Qarzlar"],["box","Ombor"],["cap","Kapital"],["stat","Statistika"],["set","Sozlama"]];
 let tab = "calc", openCustomer = null, period = "day";
 function renderNav(){
   $("#nav").innerHTML = TABS.map(([k,l])=>`<button data-k="${k}" class="${tab===k?"on":""}">${ICONS[k]}<span>${l}</span></button>`).join("");
@@ -599,7 +606,7 @@ function render(){
   $("#nav").style.display="";
   renderNav();
   const v=$("#view");
-  ({calc:viewCalc,debt:viewDebt,cap:viewCap,stat:viewStat,set:viewSet})[tab](v);
+  ({calc:viewCalc,debt:viewDebt,box:viewStock,cap:viewCap,stat:viewStat,set:viewSet})[tab](v);
   v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in");
   $("main").scrollTop = 0;
 }
@@ -619,6 +626,7 @@ function askAddSale(amount){
       <select id="sCust">${custOpts}<option value="__new">+ Yangi mijoz…</option></select>
       <input id="sNew" placeholder="Yangi mijoz ismi" style="display:none;margin-top:8px">
     </div>
+    ${DB.stock.length?`<label>Ombordan ayirish (ixtiyoriy)</label><div class="row"><select id="sProd" style="flex:2"><option value="">— tanlamang —</option>${DB.stock.map(p=>`<option value="${p.id}">${esc(p.name)} (${p.qty})</option>`).join("")}</select><input id="sQty" inputmode="decimal" value="1" style="flex:1"></div>`:""}
     <label>Izoh (ixtiyoriy)</label><input id="sNote" placeholder="Nima sotildi?">
     <div class="row" style="margin-top:16px"><button class="btn sec" id="no">Bekor</button><button class="btn" id="yes">Qo'shish</button></div>`,
   s=>{
@@ -640,6 +648,7 @@ function askAddSale(amount){
         c.tx.push({id:uid(),date:today(),type:"debt",amount,note:sale.note||"Savdo"});
         sale.customerId=cid;
       }
+      const pe=$("#sProd",s); if(pe&&pe.value){ const p=DB.stock.find(x=>x.id===pe.value); if(p){ p.qty=Math.max(0,Math.round((p.qty-(val($("#sQty",s))||1))*100)/100); } }
       DB.sales.push(sale); save(); closeModal(); toast("Savdoga qo'shildi ✓");
       render();
     };
@@ -675,6 +684,7 @@ function viewCalc(v){
   const T=dayTotals(t), Y=dayTotals(y);
   let cmp="Kecha savdo bo'lmagan";
   if(Y.sum>0){ const pc=Math.round((T.sum-Y.sum)/Y.sum*1000)/10; cmp=(pc>=0?"▲ +":"▼ ")+pc+"% kechaga nisbatan"; }
+  const lowL=stockAlert();
   const ts=DB.sales.filter(s=>s.date===t);
   const top=DB.customers.filter(c=>balance(c)>0).sort((a,b)=>balance(b)-balance(a)).slice(0,3);
   const hr=new Date().getHours(), gr=hr<5?"Xayrli tun":hr<12?"Xayrli tong":hr<18?"Xayrli kun":"Xayrli kech";
@@ -691,6 +701,7 @@ function viewCalc(v){
     <div class="chips">${[5000,10000,20000,50000,100000].map(n=>`<button data-add="${n}">+${num(n)}</button>`).join("")}<button id="clr">Tozalash</button></div>
     <button class="btn full" id="addS" style="margin-top:12px;font-size:17px;padding:14px">＋ Savdoga qo'shish</button>
   </div>
+  ${lowL.out.length||lowL.low.length?`<div class="card" style="border-left:5px solid var(--red,#dc2626)"><div class="spread"><h3 style="margin:0">⚠ Omborni tekshiring</h3><button class="btn sec sm" id="goBox">Ombor →</button></div><div style="margin-top:6px;font-size:14px">${lowL.out.length?`<b>Tugagan:</b> ${lowL.out.slice(0,5).map(x=>esc(x.name)).join(", ")}${lowL.out.length>5?" va yana "+(lowL.out.length-5):""}<br>`:""}${lowL.low.length?`<b>Oz qolgan:</b> ${lowL.low.slice(0,5).map(x=>esc(x.name)+" ("+x.qty+")").join(", ")}`:""}</div></div>`:""}
   ${top.length?`<div class="card"><div class="spread"><h3 style="margin:0">Eng katta qarzlar</h3><button class="btn sec sm" id="allD">Hammasi →</button></div>
     <div class="list" style="margin-top:6px">${top.map(c=>`<div class="item click" data-c="${c.id}"><div class="who">${avatar(c.name)}<div class="t">${esc(c.name)}</div></div><div class="amt down">${som(balance(c))}</div></div>`).join("")}</div></div>`:""}
   <div class="card">
@@ -707,6 +718,7 @@ function viewCalc(v){
   v.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const cur=parseInt(ai.value.replace(/\D/g,""),10)||0; ai.value=fmt(cur+(+b.dataset.add)); });
   $("#clr",v).onclick=()=>{ ai.value=""; ai.focus(); };
   $("#rep",v).onclick=()=>shareModal("Hisobotni ulashish",reportText());
+  if($("#goBox",v)) $("#goBox",v).onclick=()=>{ tab="box"; render(); };
   if($("#allD",v)) $("#allD",v).onclick=()=>{ tab="debt"; openCustomer=null; render(); };
   v.querySelectorAll("[data-c]").forEach(d=>d.onclick=()=>{ tab="debt"; openCustomer=d.dataset.c; render(); });
   v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>askBox("Bu savdo savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{
@@ -714,6 +726,54 @@ function viewCalc(v){
     if(sl.customerId){ const c=DB.customers.find(x=>x.id===sl.customerId); if(c){ const i=c.tx.findIndex(t=>t.type==="debt"&&t.amount===sl.amount&&t.date===sl.date); if(i>=0) rt=c.tx.splice(i,1)[0]; } }
     toTrash("sale",som(sl.amount)+" · "+fmtDate(sl.date),{sale:sl,tx:rt,cid:sl.customerId||null});
     DB.sales=DB.sales.filter(x=>x.id!==b.dataset.del); save(); render(); toast("Savatga o'tdi");}));
+}
+
+
+/* ============ OMBOR (qoldiq) ============ */
+function stockAlert(){
+  const out=DB.stock.filter(p=>p.qty<=0), low=DB.stock.filter(p=>p.qty>0&&p.qty<=(p.min==null?3:p.min));
+  return {out,low};
+}
+function missTop(){
+  const lim=ymd(addDays(new Date(),-30)), m={};
+  DB.miss.filter(x=>x.date>=lim).forEach(x=>{ const k=x.name.trim().toLowerCase(); (m[k]=m[k]||{name:x.name.trim(),n:0}).n++; });
+  return Object.values(m).sort((a,b)=>b.n-a.n);
+}
+function orderText(){
+  const A=stockAlert(), L=[...A.out,...A.low].map(p=>"• "+p.name+(p.qty<=0?" (tugagan)":" (qolgan: "+p.qty+")"));
+  const M=missTop().filter(x=>!DB.stock.some(p=>p.name.trim().toLowerCase()===x.name.toLowerCase())).map(x=>"• "+x.name+" (so'rashdi: "+x.n+" marta, omborda yo'q)");
+  return "🛒 Olinadigan mollar ("+fmtDate(today())+")\n"+(L.concat(M).join("\n")||"Hammasi yetarli");
+}
+function viewStock(v){
+  const A=stockAlert(), mt=missTop();
+  const ord=p=>p.qty<=0?0:(p.qty<=(p.min==null?3:p.min)?1:2);
+  const L=DB.stock.slice().sort((a,b)=>ord(a)-ord(b)||a.name.localeCompare(b.name));
+  v.innerHTML=`
+  <div class="hero"><div class="hl">Ombor</div><div class="hrow"><div class="hc"><b>${DB.stock.length}</b><span>Tovar turi</span></div><div class="hc"><b>${A.out.length}</b><span>Tugagan</span></div><div class="hc"><b>${A.low.length}</b><span>Oz qolgan</span></div></div></div>
+  <div class="card"><h3>＋ Tovar qo'shish</h3>
+   <input id="pN" placeholder="Tovar nomi (masalan: Un 50 kg)">
+   <div class="row"><input id="pQ" inputmode="decimal" placeholder="Soni" style="flex:1"><input id="pM" inputmode="decimal" placeholder="Eng kam, odatda 3" style="flex:1"></div>
+   <button class="btn full" id="pAdd">Qo'shish</button></div>
+  <div class="card"><div class="spread"><h3 style="margin:0">🙋 Mijoz so'radi, yo'q edi</h3><button class="btn sm" id="mAdd">Yozish</button></div>
+   <div class="mut" style="font-size:13px;margin-top:6px">Mijoz so'ragan, lekin sizda bo'lmagan tovarni yozib boring. Qaysi mol ko'p so'ralishini bilasiz.</div>
+   ${mt.length?`<div class="list" style="margin-top:8px">${mt.slice(0,6).map(x=>`<div class="item"><div class="t">${esc(x.name)}</div><span class="badge r">${x.n} marta</span></div>`).join("")}</div>`:""}</div>
+  ${(A.out.length||A.low.length||mt.length)?`<button class="btn sec full" id="ordB" style="margin-bottom:12px">📋 Olinadigan mollar ro'yxati</button>`:""}
+  <div class="card"><h3>Tovarlar</h3><div class="list">${L.length?L.map(p=>{const o=ord(p);return `<div class="item" style="flex-wrap:wrap;gap:8px"><div style="flex:1;min-width:120px"><div class="t">${esc(p.name)}</div><div class="s">${o==0?'<span class="badge r">TUGAGAN</span>':o==1?'<span class="badge r" style="background:#fff3d6;color:#92400e">OZ QOLGAN</span>':"Yetarli"} · eng kam: ${p.min==null?3:p.min}</div></div>
+   <div style="font-size:24px;font-weight:800;min-width:46px;text-align:center">${p.qty}</div>
+   <div class="row" style="gap:6px"><button class="btn sec sm" data-m="${p.id}">−1</button><button class="btn sm" data-p="${p.id}">+ keldi</button><button class="btn sec sm" data-e="${p.id}">✎</button></div></div>`}).join(""):'<div class="empty"><div style="font-size:34px;margin-bottom:6px">📦</div>Hali tovar yo\'q.<br>Yuqoriga tovar nomi va sonini yozing.</div>'}</div></div>`;
+  $("#pAdd",v).onclick=()=>{ const n=$("#pN",v).value.trim(); if(!n){ toast("Tovar nomini yozing"); return; } DB.stock.push({id:uid(),name:n,qty:val($("#pQ",v)),min:val($("#pM",v))||3}); save(); render(); toast("Qo'shildi ✓"); };
+  $("#mAdd",v).onclick=()=>openModal(`<h2>Nima so'raldi?</h2><input id="mN" list="mL" placeholder="Tovar nomi" autofocus><datalist id="mL">${DB.stock.map(p=>`<option value="${esc(p.name)}">`).join("")}</datalist><div class="row" style="margin-top:14px"><button class="btn sec" id="no">Bekor</button><button class="btn" id="yes">Yozib qo'yish</button></div>`,
+    s=>{ $("#no",s).onclick=closeModal; $("#yes",s).onclick=()=>{ const n=$("#mN",s).value.trim(); if(!n){ toast("Nomini yozing"); return; } DB.miss.push({id:uid(),name:n,date:today()}); save(); closeModal(); render(); toast("Yozildi ✓"); }; });
+  if($("#ordB",v)) $("#ordB",v).onclick=()=>shareModal("Olinadigan mollar",orderText());
+  v.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{ const p=DB.stock.find(x=>x.id===b.dataset.m); p.qty=Math.max(0,Math.round((p.qty-1)*100)/100); save(); render(); });
+  v.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ const p=DB.stock.find(x=>x.id===b.dataset.p);
+    openModal(`<h2>${esc(p.name)}: nechta keldi?</h2><input id="pk" inputmode="decimal" placeholder="Soni" autofocus><div class="row" style="margin-top:14px"><button class="btn sec" id="no">Bekor</button><button class="btn" id="yes">Qo'shish</button></div>`,
+    s=>{ $("#no",s).onclick=closeModal; $("#yes",s).onclick=()=>{ const n=val($("#pk",s)); if(!n){ toast("Sonini yozing"); return; } p.qty=Math.round((p.qty+n)*100)/100; save(); closeModal(); render(); toast("Omborga qo'shildi ✓"); }; }); });
+  v.querySelectorAll("[data-e]").forEach(b=>b.onclick=()=>{ const p=DB.stock.find(x=>x.id===b.dataset.e);
+    openModal(`<h2>Tovarni tahrirlash</h2><label>Nomi</label><input id="eN" value="${esc(p.name)}"><label>Hozirgi soni</label><input id="eQ" inputmode="decimal" value="${p.qty}"><label>Eng kam miqdor (ogohlantirish)</label><input id="eM" inputmode="decimal" value="${p.min==null?3:p.min}">
+    <div class="row" style="margin-top:14px"><button class="btn red" id="del">O'chirish</button><button class="btn" id="yes">Saqlash</button></div>`,
+    s=>{ $("#yes",s).onclick=()=>{ p.name=$("#eN",s).value.trim()||p.name; p.qty=val($("#eQ",s)); p.min=val($("#eM",s)); save(); closeModal(); render(); };
+      $("#del",s).onclick=()=>{ DB.stock=DB.stock.filter(x=>x.id!==p.id); save(); closeModal(); render(); toast("O'chirildi"); }; }); });
 }
 
 /* ============ 2) QARZ DAFTARI ============ */
