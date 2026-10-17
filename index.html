@@ -99,6 +99,44 @@ tr.be td{background:var(--pri-soft);font-weight:700}
 .chart{width:100%;height:190px}
 .chk{display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;font-size:14px}
 .chk input{width:20px;height:20px}
+
+/* ===== Yangi dizayn ===== */
+:root{--sh:0 1px 2px rgba(15,60,55,.06),0 8px 22px rgba(15,60,55,.07);--rad:18px}
+header{background:linear-gradient(135deg,#0f766e 0%,#0b5d56 100%);padding-bottom:14px;border-radius:0 0 22px 22px;box-shadow:0 6px 20px rgba(11,93,86,.25);position:relative;z-index:2}
+header h1{font-size:19px;letter-spacing:.2px;display:flex;align-items:center;gap:9px}
+header h1:before{content:"";width:26px;height:26px;background:url(icon-192.png) center/cover;border-radius:7px;box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+main{padding-top:16px}
+.card,.stat{border-radius:var(--rad);box-shadow:var(--sh);border-color:transparent}
+.card h3{font-size:16px}
+.view-in{animation:vin .28s ease both}
+@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+nav{box-shadow:0 -4px 18px rgba(0,0,0,.06);border-top:0}
+nav button{position:relative;transition:color .2s}
+nav button.on:before{content:"";position:absolute;top:5px;width:48px;height:30px;border-radius:15px;background:var(--pri-soft)}
+nav button svg,nav button span{position:relative}
+nav button.on svg{stroke-width:2.3}
+button.btn{border-radius:14px;transition:transform .08s,filter .15s;box-shadow:0 2px 6px rgba(15,118,110,.22)}
+button.btn:active{transform:scale(.97)}
+button.btn.sec,button.btn.red{box-shadow:none}
+.hero{background:linear-gradient(135deg,#0f766e,#0b5d56 60%,#0a4a45);color:#fff;border-radius:22px;padding:18px;margin-bottom:14px;box-shadow:0 10px 26px rgba(11,93,86,.3);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-40px;top:-50px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.hero .hl{font-size:13px;opacity:.88}
+.hero .hv{font-size:34px;font-weight:800;margin:4px 0 10px;letter-spacing:-.5px;word-break:break-word}
+.hero .hrow{display:flex;gap:8px}
+.hero .hc{flex:1;min-width:0;background:rgba(255,255,255,.14);border-radius:14px;padding:9px 11px}
+.hero .hc b{display:block;font-size:16px;word-break:break-word}
+.hero .hc span{font-size:11.5px;opacity:.85}
+.hbtn{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:20px;padding:6px 12px;font-weight:700;font-size:12.5px;cursor:pointer;position:relative;z-index:1}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 4px;margin-top:10px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:20px;padding:8px 14px;font-weight:700;color:var(--pri);font-size:14px;cursor:pointer}
+.chips button:active{background:var(--pri-soft)}
+.av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;flex:none;font-size:16px}
+.who{display:flex;align-items:center;gap:11px;min-width:0}
+.who>div:last-child{min-width:0}
+.abtn{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:14px;padding:11px 16px;font-size:15px;font-weight:700;background:var(--pri-soft);color:var(--pri);flex:1}
+.list>div.item.click:active{background:var(--pri-soft)}
+.empty{font-size:14px}
 </style>
 </head>
 <body>
@@ -195,6 +233,7 @@ async function boot(){
   render();
   purgeTrash();
   autoSnap();
+  maybeIntro();
   if(CL.id)cloudStart();
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
 }
@@ -518,6 +557,26 @@ async function snapModal(){
     }); }); });
 }
 
+
+/* ============ Tanishtiruv (birinchi ochilishda) ============ */
+const IKEY="savdo_intro_v1";
+const INTRO=[
+ ["🛒","Savdoni yozing","Har bir savdo summasini yozing va «Savdoga qo'shish» ni bosing. Nasiyaga bersangiz, mijozni tanlang. Qarz o'zi daftarga tushadi."],
+ ["📒","Qarz daftari","Kim qancha qarz ekani doim ko'z oldingizda. Mijoz qarzini qaytarsa, «To'lov» yozasiz. Qog'ozdagi daftar kerak emas."],
+ ["📈","Foyda va statistika","Bugun, shu hafta va shu oyda qancha sotdingiz va qancha foyda qildingiz. O'tgan davr bilan solishtirish ham bor."],
+ ["🛡","Ma'lumot xavfsiz","Ilova har kuni o'zi zaxira oladi. O'chirilgan narsa 30 kun savatda turadi. Xodimlar bilan bir daftarni ko'rish uchun Sozlama → ☁ umumiy daftar."]
+];
+function introModal(i){
+  i=i||0; const t=INTRO[i], last=i===INTRO.length-1;
+  openModal(`<div style="text-align:center"><div style="font-size:54px;line-height:1.2">${t[0]}</div>
+   <h2 style="margin:8px 0">${t[1]}</h2><div class="mut" style="font-size:15px;line-height:1.5;min-height:96px">${t[2]}</div>
+   <div style="margin:10px 0">${INTRO.map((_,k)=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin:0 3px;background:${k===i?"var(--pri)":"#cfd8d5"}"></span>`).join("")}</div>
+   <div class="row"><button class="btn sec" id="iSkip">${last?"Yopish":"O'tkazib yuborish"}</button><button class="btn" id="iNext">${last?"Boshlash":"Keyingi →"}</button></div></div>`,
+  s=>{ const done=()=>{ try{ localStorage.setItem(IKEY,"1"); }catch(e){} closeModal(); };
+    $("#iSkip",s).onclick=done; $("#iNext",s).onclick=()=>{ if(last) done(); else introModal(i+1); }; });
+}
+function maybeIntro(){ let seen=false; try{ seen=localStorage.getItem(IKEY)==="1"; }catch(e){} if(!seen && licState().ok && !$("#modal").innerHTML) introModal(0); }
+
 /* ============ Navigatsiya ============ */
 const ICONS = {
   calc:'<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>',
@@ -541,6 +600,7 @@ function render(){
   renderNav();
   const v=$("#view");
   ({calc:viewCalc,debt:viewDebt,cap:viewCap,stat:viewStat,set:viewSet})[tab](v);
+  v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in");
   $("main").scrollTop = 0;
 }
 
@@ -585,34 +645,70 @@ function askAddSale(amount){
     };
   });
 }
+
+const AVC=["#0f766e","#b45309","#7c3aed","#0369a1","#be185d","#15803d","#c2410c"];
+function avatar(name,sz){ const n=String(name||"?").trim()||"?"; let h=0; for(const ch of n) h=(h*31+ch.charCodeAt(0))>>>0;
+  const ini=n.split(/\s+/).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  return `<div class="av" style="background:${AVC[h%AVC.length]};${sz?`width:${sz}px;height:${sz}px;font-size:${Math.round(sz/2.6)}px`:""}">${esc(ini)}</div>`; }
+function dayTotals(d){ const ts=DB.sales.filter(s=>s.date===d); return {n:ts.length,sum:ts.reduce((a,s)=>a+s.amount,0),pr:ts.reduce((a,s)=>a+saleProfit(s),0)}; }
+function totalDebt(){ return DB.customers.reduce((a,c)=>a+Math.max(0,balance(c)),0); }
+function reportText(){
+  const t=today(), dayStr=n=>ymd(new Date(Date.now()-n*864e5));
+  const agg=from=>{ const ss=DB.sales.filter(x=>x.date>=from&&x.date<=t); return {n:ss.length,sum:ss.reduce((a,x)=>a+x.amount,0),pr:ss.reduce((a,x)=>a+saleProfit(x),0)}; };
+  const a=agg(t), w=agg(dayStr(6)), m=agg(dayStr(29));
+  return `📊 ${DB.settings.shop||"Savdo Hisobi"}: hisobot (${fmtDate(t)})\n\nBugun: savdo ${som(a.sum)}, foyda ${som(a.pr)}, ${a.n} ta savdo\nOxirgi 7 kun: savdo ${som(w.sum)}, foyda ${som(w.pr)}\nOxirgi 30 kun: savdo ${som(m.sum)}, foyda ${som(m.pr)}\nJami qarz: ${som(totalDebt())} (${DB.customers.filter(c=>balance(c)>0).length} ta mijoz)`;
+}
+function remindMsg(c){ return `Assalomu alaykum, ${c.name}! ${DB.settings.shop||"Do'konimiz"}dan ${num(balance(c))} so'm qarzingiz bor. Iltimos, imkon bo'lganda to'lab qo'ying. Rahmat!`; }
+function shareModal(title,text,phone){
+  openModal(`<h2>${esc(title)}</h2><textarea id="shT" rows="7" style="margin-top:8px">${esc(text)}</textarea>
+   <div class="row" style="margin-top:12px">${phone?'<button class="btn" id="shSms">💬 SMS</button>':""}<button class="btn" id="shShare">📤 Ulashish</button><button class="btn sec" id="shCopy">Nusxa</button></div>
+   <button class="btn sec full" id="x" style="margin-top:8px">Yopish</button>`,
+  s=>{ const T=()=>$("#shT",s).value;
+    $("#x",s).onclick=closeModal;
+    $("#shCopy",s).onclick=async()=>{ try{ await navigator.clipboard.writeText(T()); }catch(e){ $("#shT",s).select(); document.execCommand("copy"); } toast("Nusxa olindi ✓"); };
+    $("#shShare",s).onclick=async()=>{ if(navigator.share){ try{ await navigator.share({text:T()}); }catch(e){} } else $("#shCopy",s).click(); };
+    if($("#shSms",s)) $("#shSms",s).onclick=()=>{ location.href="sms:"+String(phone).replace(/[^\d+]/g,"")+"?body="+encodeURIComponent(T()); };
+  });
+}
 function viewCalc(v){
-  const t=today();
+  const t=today(), y=ymd(new Date(Date.now()-864e5));
+  const T=dayTotals(t), Y=dayTotals(y);
+  let cmp="Kecha savdo bo'lmagan";
+  if(Y.sum>0){ const pc=Math.round((T.sum-Y.sum)/Y.sum*1000)/10; cmp=(pc>=0?"▲ +":"▼ ")+pc+"% kechaga nisbatan"; }
   const ts=DB.sales.filter(s=>s.date===t);
-  const tot=ts.reduce((a,s)=>a+s.amount,0), pr=ts.reduce((a,s)=>a+saleProfit(s),0);
+  const top=DB.customers.filter(c=>balance(c)>0).sort((a,b)=>balance(b)-balance(a)).slice(0,3);
+  const hr=new Date().getHours(), gr=hr<5?"Xayrli tun":hr<12?"Xayrli tong":hr<18?"Xayrli kun":"Xayrli kech";
   v.innerHTML = `
-  <div class="card" style="max-width:640px;margin:0 auto 12px">
-    <h3>Yangi savdo</h3>
-    <label>Savdo summasi (so'm)</label>
-    <input id="amt" inputmode="numeric" placeholder="Masalan: 45 000" style="font-size:22px;font-weight:700">
+  <div class="hero">
+    <div class="spread"><div class="hl">${gr}! Bugungi savdo</div><button class="hbtn" id="rep">📤 Hisobot</button></div>
+    <div class="hv">${som(T.sum)}</div>
+    <div class="hl" style="margin:-6px 0 12px">${cmp}</div>
+    <div class="hrow"><div class="hc"><b>${num(T.pr)}</b><span>Foyda, so'm</span></div><div class="hc"><b>${T.n}</b><span>Savdolar</span></div><div class="hc"><b>${num(totalDebt())}</b><span>Qarz, so'm</span></div></div>
+  </div>
+  <div class="card">
+    <h3>＋ Yangi savdo</h3>
+    <input id="amt" inputmode="numeric" placeholder="Summa, masalan 45 000" style="font-size:22px;font-weight:700">
+    <div class="chips">${[5000,10000,20000,50000,100000].map(n=>`<button data-add="${n}">+${num(n)}</button>`).join("")}<button id="clr">Tozalash</button></div>
     <button class="btn full" id="addS" style="margin-top:12px;font-size:17px;padding:14px">＋ Savdoga qo'shish</button>
   </div>
-  <div style="height:14px"></div>
-  <div class="grid g3" style="max-width:640px;margin:0 auto 12px">
-    <div class="stat"><div class="l">Bugungi savdo</div><div class="v">${som(tot)}</div></div>
-    <div class="stat"><div class="l">Bugungi foyda</div><div class="v up">${som(pr)}</div></div>
-    <div class="stat"><div class="l">Savdolar soni</div><div class="v">${ts.length}</div></div>
-  </div>
-  <div class="card" style="max-width:640px;margin:0 auto">
+  ${top.length?`<div class="card"><div class="spread"><h3 style="margin:0">Eng katta qarzlar</h3><button class="btn sec sm" id="allD">Hammasi →</button></div>
+    <div class="list" style="margin-top:6px">${top.map(c=>`<div class="item click" data-c="${c.id}"><div class="who">${avatar(c.name)}<div class="t">${esc(c.name)}</div></div><div class="amt down">${som(balance(c))}</div></div>`).join("")}</div></div>`:""}
+  <div class="card">
     <h3>Bugungi savdolar</h3>
     <div class="list">${ts.length? ts.slice().reverse().map(s=>`
       <div class="item"><div><div class="t">${som(s.amount)} ${s.customerId?'<span class="badge r">nasiya</span>':''}</div>
       <div class="s">${new Date(s.ts).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}${s.note?" · "+esc(s.note):""}</div></div>
-      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty">Hali savdo yo\'q.<br>Yuqoriga summani yozing va «Savdoga qo\'shish» ni bosing.</div>'}</div>
+      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty"><div style="font-size:34px;margin-bottom:6px">🧾</div>Hali savdo yo\'q.<br>Yuqoriga summani yozing va «Savdoga qo\'shish» ni bosing.</div>'}</div>
   </div>`;
-  const ai=$("#amt",v);
-  ai.oninput=()=>{ const d=ai.value.replace(/\D/g,""); ai.value=d.replace(/\B(?=(\d{3})+(?!\d))/g," "); };
+  const ai=$("#amt",v), fmt=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g," ");
+  ai.oninput=()=>{ ai.value=fmt(ai.value.replace(/\D/g,"")); };
   const go=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return; } askAddSale(n); };
   $("#addS",v).onclick=go; ai.onkeydown=e=>{ if(e.key==="Enter") go(); };
+  v.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const cur=parseInt(ai.value.replace(/\D/g,""),10)||0; ai.value=fmt(cur+(+b.dataset.add)); });
+  $("#clr",v).onclick=()=>{ ai.value=""; ai.focus(); };
+  $("#rep",v).onclick=()=>shareModal("Hisobotni ulashish",reportText());
+  if($("#allD",v)) $("#allD",v).onclick=()=>{ tab="debt"; openCustomer=null; render(); };
+  v.querySelectorAll("[data-c]").forEach(d=>d.onclick=()=>{ tab="debt"; openCustomer=d.dataset.c; render(); });
   v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>askBox("Bu savdo savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{
     const sl=DB.sales.find(x=>x.id===b.dataset.del); if(!sl) return; let rt=null;
     if(sl.customerId){ const c=DB.customers.find(x=>x.id===sl.customerId); if(c){ const i=c.tx.findIndex(t=>t.type==="debt"&&t.amount===sl.amount&&t.date===sl.date); if(i>=0) rt=c.tx.splice(i,1)[0]; } }
@@ -636,7 +732,7 @@ function viewDebt(v){
   <div class="row"><input id="q" placeholder="Mijoz qidirish…" value="${esc(debtQuery)}"><button class="btn auto" id="addC">+ Mijoz</button></div>
   <div style="height:12px"></div>
   <div class="card"><div class="list">${list.length? list.map(c=>{const b=balance(c);return `
-    <div class="item click" data-c="${c.id}"><div><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone||"")}${c.tx.length?(c.phone?" · ":"")+"oxirgi: "+fmtDate(c.tx[c.tx.length-1].date):""}</div></div>
+    <div class="item click" data-c="${c.id}"><div class="who">${avatar(c.name)}<div><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone||"")}${c.tx.length?(c.phone?" · ":"")+"oxirgi: "+fmtDate(c.tx[c.tx.length-1].date):""}</div></div></div>
     <div class="amt ${b>0?"down":b<0?"up":"mut"}">${b>0?som(b):b<0?"+"+som(-b)+" (ortiqcha)":"Qarz yo'q"}</div></div>`}).join("") : '<div class="empty">Mijozlar yo\'q.<br>«+ Mijoz» tugmasi bilan qo\'shing.</div>'}</div></div>`;
   $("#q").oninput=e=>{ debtQuery=e.target.value; const p=e.target.selectionStart; viewDebt(v); const q=$("#q"); q.focus(); q.setSelectionRange(p,p); };
   $("#addC").onclick=()=>customerForm();
@@ -659,11 +755,12 @@ function viewCustomer(v){
   v.innerHTML = `
   <button class="btn sec sm" id="back">← Orqaga</button>
   <div class="card" style="margin-top:12px">
-    <div class="spread"><div><div style="font-size:20px;font-weight:800">${esc(c.name)}</div><div class="mut">${esc(c.phone||"")}</div></div>
+    <div class="spread"><div class="who">${avatar(c.name,48)}<div><div style="font-size:20px;font-weight:800">${esc(c.name)}</div><div class="mut">${esc(c.phone||"")}</div></div></div>
     <div><button class="btn sec sm" id="edit">Tahrir</button> ${isOwner()?`<button class="btn red sm" id="delC">O'chirish</button>`:""}</div></div>
     <div class="mut" style="margin-top:12px;font-size:12px">Hozirgi qarz</div>
     <div style="font-size:30px;font-weight:800" class="${b>0?"down":"up"}">${b>=0?som(b):"+"+som(-b)+" ortiqcha"}</div>
     <div class="row" style="margin-top:14px"><button class="btn" id="bDebt" style="background:var(--down)">+ Qarz berish</button><button class="btn" id="bPay">Qarz to'lash</button></div>
+    ${(b>0||c.phone)?`<div class="row" style="margin-top:8px">${b>0?'<button class="btn sec" id="bRem">💬 Qarzni eslatish</button>':""}${c.phone?`<a class="abtn" href="tel:${esc(String(c.phone).replace(/[^\d+]/g,""))}">📞 Qo'ng'iroq</a>`:""}</div>`:""}
   </div>
   <div class="card"><h3>Tarix</h3><div class="list">${rows.length? rows.map(t=>`
     <div class="item"><div><div class="t">${t.type==="debt"?"Qarz berildi":"To'lov qabul qilindi"}</div><div class="s">${fmtDate(t.date)}${t.note?" · "+esc(t.note):""} · qoldiq ${num(t.run)}</div></div>
@@ -671,6 +768,7 @@ function viewCustomer(v){
   $("#back").onclick=()=>{openCustomer=null;render();};
   $("#edit").onclick=()=>customerForm(c);
   if($("#delC")) $("#delC").onclick=()=>askBox(`«${c.name}» va uning barcha yozuvlari savatga o'tkaziladi (30 kun ichida qaytarish mumkin).`,"Savatga o'tkazish",()=>{toTrash("customer",c.name+" (qarz "+num(balance(c))+")",c);DB.customers=DB.customers.filter(x=>x.id!==c.id);save();openCustomer=null;render();toast("Savatga o'tdi");});
+  if($("#bRem")) $("#bRem").onclick=()=>shareModal("Qarzni eslatish",remindMsg(c),c.phone);
   $("#bDebt").onclick=()=>txForm(c,"debt"); $("#bPay").onclick=()=>txForm(c,"pay",b>0?b:0);
   v.querySelectorAll("[data-t]").forEach(x=>x.onclick=()=>askBox("Bu yozuv savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{const t=c.tx.find(q=>q.id===x.dataset.t); if(t) toTrash("tx",(t.type==="debt"?"Qarz ":"To'lov ")+num(t.amount)+" · "+c.name,{cid:c.id,tx:t}); c.tx=c.tx.filter(q=>q.id!==x.dataset.t);save();render();toast("Savatga o'tdi");}));
 }
@@ -812,6 +910,7 @@ function viewSet(v){
   ${cloudCardHtml()}
   <div class="card"><h3>🗑 Savat</h3><div class="mut" style="font-size:13px;margin-bottom:10px">O'chirilgan mijoz, savdo va yozuvlarni ${TRASH_DAYS} kun ichida qaytarish mumkin.</div><button class="btn sec full" id="trBtn">Savatni ochish (${DB.trash.length})</button></div>
   <div class="card"><h3>🛟 Avto-zaxira</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Ilova har kuni o'zi nusxa saqlaydi. Hech narsa qilish shart emas.</div><button class="btn sec full" id="snBtn">Zaxiralarni ko'rish</button></div>
+  <div class="card"><h3>📖 Qo'llanma</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Ilova qanday ishlashini qisqa ko'rsatadi.</div><button class="btn sec full" id="inBtn">Tanishtiruvni ko'rish</button></div>
   <div class="card" id="instCard"><h3>Ilovani telefonga / kompyuterga o'rnatish</h3>
     <button class="btn full" id="instBtn" style="display:none">⬇ O'rnatish</button>
     <div class="mut" style="font-size:13px;margin-top:8px"><b>Android (Chrome):</b> ⋮ menyu → «Ilovani o'rnatish» yoki «Bosh ekranga qo'shish».<br><b>iPhone (Safari):</b> «Ulashish» tugmasi → «Bosh ekranga qo'shish».<br><b>Windows (Chrome/Edge):</b> manzil qatoridagi ⬇ belgisi → «O'rnatish».</div></div>
@@ -831,6 +930,7 @@ function viewSet(v){
   bindCloud(v);
   $("#trBtn").onclick=trashModal;
   $("#snBtn").onclick=snapModal;
+  $("#inBtn").onclick=()=>introModal(0);
   const ib=$("#instBtn");
   if(window.matchMedia("(display-mode: standalone)").matches){ $("#instCard").style.display="none"; }
   else if(deferredPrompt){ ib.style.display="block"; ib.onclick=async()=>{ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; ib.style.display="none"; }; }
