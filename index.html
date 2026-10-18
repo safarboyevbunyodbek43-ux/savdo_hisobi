@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#f2f2f7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Savdo Hisobi</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
@@ -100,6 +100,8 @@ tr.be td{background:var(--pri-soft);font-weight:700}
 .chk{display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600;font-size:14px}
 .chk input{width:20px;height:20px}
 
+details.card>summary{font-weight:700;font-size:16px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}details.card>summary::-webkit-details-marker{display:none}details.card>summary:after{content:'▾';color:var(--mut)}details[open].card>summary{margin-bottom:12px}details[open].card>summary:after{content:'▴'}
+.seg{display:flex;background:#e6efed;border-radius:14px;padding:4px;margin-bottom:12px}.seg button{flex:1;border:0;background:none;padding:10px;border-radius:11px;font-weight:700;color:var(--mut);font-size:15px;cursor:pointer}.seg button.on{background:#fff;color:var(--pri);box-shadow:0 2px 8px rgba(0,0,0,.08)}
 /* ===== Yangi dizayn ===== */
 :root{--sh:0 1px 2px rgba(15,60,55,.06),0 8px 22px rgba(15,60,55,.07);--rad:18px}
 header{background:linear-gradient(135deg,#0f766e 0%,#0b5d56 100%);padding-bottom:14px;border-radius:0 0 22px 22px;box-shadow:0 6px 20px rgba(11,93,86,.25);position:relative;z-index:2}
@@ -137,6 +139,62 @@ button.btn.sec,button.btn.red{box-shadow:none}
 .abtn{display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:14px;padding:11px 16px;font-size:15px;font-weight:700;background:var(--pri-soft);color:var(--pri);flex:1}
 .list>div.item.click:active{background:var(--pri-soft)}
 .empty{font-size:14px}
+
+/* ===== iOS uslubi (Liquid Glass) ===== */
+:root{--bg:#f2f2f7;--card:#fff;--ink:#111827;--mut:#6b7280;--line:rgba(60,60,67,.14);--sh:0 1px 1px rgba(0,0,0,.03),0 6px 18px rgba(0,0,0,.05);--rad:22px;--glass:rgba(255,255,255,.62);--glass-b:rgba(255,255,255,.7);--fill:rgba(120,120,128,.12);--spring:cubic-bezier(.32,1.28,.5,1)}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--ink:#f5f5f7;--mut:#98989f;--line:rgba(255,255,255,.12);--glass:rgba(40,40,44,.6);--glass-b:rgba(255,255,255,.14);--fill:rgba(120,120,128,.28)}}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.01em;background:var(--bg)}
+body:before{content:"";position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(40% 30% at 15% 10%,rgba(15,118,110,.18),transparent 70%),radial-gradient(35% 28% at 90% 35%,rgba(245,158,11,.14),transparent 70%),radial-gradient(40% 30% at 30% 95%,rgba(14,165,233,.12),transparent 70%)}
+#app{position:relative;z-index:1}
+#app{flex-direction:column!important}
+.col{display:contents!important}
+header{background:transparent!important;color:var(--ink)!important;box-shadow:none!important;border-radius:0!important;display:block!important;padding:calc(14px + env(safe-area-inset-top)) 20px 6px!important;position:relative;z-index:5;transition:padding .25s var(--spring),background .25s,backdrop-filter .25s}
+header h1{font-size:34px!important;font-weight:800;letter-spacing:-.03em!important;margin:0;color:var(--ink);transition:font-size .28s var(--spring)}
+header h1:before{display:none!important}
+header small{display:block;color:var(--mut)!important;opacity:1!important;font-size:14px;margin-top:2px;max-height:24px;overflow:hidden;transition:max-height .25s,opacity .2s,margin .25s}
+header.sc{background:var(--glass)!important;backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);padding:calc(8px + env(safe-area-inset-top)) 20px 8px!important;text-align:center;border-bottom:.5px solid var(--line)}
+header.sc h1{font-size:17px!important;font-weight:700}
+header.sc small{max-height:0;opacity:0!important;margin:0}
+main{padding:6px 16px 120px!important}
+nav{position:fixed!important;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(calc(100% - 28px),440px)!important;height:66px;flex-direction:row!important;padding:5px!important;border:.5px solid var(--glass-b)!important;border-radius:34px;background:var(--glass)!important;backdrop-filter:blur(26px) saturate(190%);-webkit-backdrop-filter:blur(26px) saturate(190%);box-shadow:0 10px 34px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.5)!important;z-index:20;overflow:hidden}
+nav button{flex:1!important;padding:6px 2px!important;font-size:10.5px!important;gap:3px;color:var(--mut);position:relative;z-index:1;transition:color .2s,transform .35s var(--spring);font-weight:600}
+nav button svg{width:25px!important;height:25px!important}
+nav button.on{color:var(--pri)}
+nav button.on:before{display:none!important}
+nav button:active{transform:scale(.88)}
+#ind{position:absolute;top:5px;bottom:5px;border-radius:29px;background:rgba(15,118,110,.14);box-shadow:inset 0 0 0 .5px rgba(15,118,110,.25),0 2px 8px rgba(15,118,110,.12);transition:left .5s var(--spring),width .5s var(--spring);pointer-events:none}
+@media (prefers-color-scheme:dark){#ind{background:rgba(43,179,165,.22)}}
+.card,.stat{background:var(--card);border-radius:var(--rad)!important;border:0!important;box-shadow:var(--sh)!important}
+.hero{border-radius:26px!important}
+.list>div.item{padding:13px 0;transition:background .15s}
+button.btn,.abtn{border-radius:16px!important;box-shadow:none!important;transition:transform .3s var(--spring),filter .15s,opacity .15s}
+button.btn:active,.abtn:active,.chips button:active,.hbtn:active{transform:scale(.95)!important}
+button.btn.sec{background:rgba(15,118,110,.12)}
+input,select,textarea{background:var(--fill)!important;border:0!important;border-radius:14px!important;padding:13px 14px!important;transition:box-shadow .2s}
+input:focus,select:focus,textarea:focus{outline:0!important;box-shadow:0 0 0 2.5px rgba(15,118,110,.45)}
+.chips button{background:var(--fill)!important;border:0!important}
+.seg{background:var(--fill)!important;border:0!important;border-radius:14px;padding:3px}
+.seg button{border-radius:11px!important;transition:background .3s var(--spring),box-shadow .3s}
+.seg button.on{background:var(--card)!important;color:var(--ink)!important;box-shadow:0 2px 8px rgba(0,0,0,.12)!important}
+input[type=checkbox]{-webkit-appearance:none;appearance:none;width:51px!important;height:31px!important;border-radius:16px!important;background:rgba(120,120,128,.3)!important;position:relative;flex:none;cursor:pointer;transition:background .3s;padding:0!important;border:0!important;box-shadow:none!important}
+input[type=checkbox]:after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);transition:transform .35s var(--spring)}
+input[type=checkbox]:checked{background:#34c759!important}
+input[type=checkbox]:checked:after{transform:translateX(20px)}
+.chk input{width:51px!important;height:31px!important}.chk{justify-content:space-between;flex-direction:row-reverse}
+.view-in{animation:viewin .45s var(--spring) both!important}
+@keyframes viewin{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+.ov{background:rgba(0,0,0,.32)!important;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:ovin .25s ease both;transition:opacity .2s}
+.ov.out{opacity:0}
+@keyframes ovin{from{opacity:0}to{opacity:1}}
+.sheet{background:var(--glass)!important;backdrop-filter:blur(34px) saturate(190%);-webkit-backdrop-filter:blur(34px) saturate(190%);border-radius:32px 32px 0 0!important;border:.5px solid var(--glass-b);padding-top:26px!important;position:relative;animation:sheetin .5s var(--spring) both;box-shadow:0 -10px 40px rgba(0,0,0,.18);touch-action:pan-y}
+.sheet:before{content:"";position:absolute;top:8px;left:50%;width:38px;height:5px;margin-left:-19px;border-radius:3px;background:rgba(120,120,128,.4)}
+.ov.out .sheet{transform:translateY(100%);transition:transform .22s ease-in;animation:none}
+@keyframes sheetin{from{transform:translateY(100%)}to{transform:none}}
+@media (min-width:700px){.sheet{border-radius:32px!important}}
+.toast{white-space:nowrap;width:max-content;max-width:92vw;top:calc(12px + env(safe-area-inset-top));bottom:auto!important;background:var(--glass)!important;color:var(--ink)!important;backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border:.5px solid var(--glass-b);box-shadow:0 8px 30px rgba(0,0,0,.18)!important;animation:toastin .5s var(--spring) both;font-weight:600}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,-30px) scale(.9)}to{opacity:1;transform:translate(-50%,0)}}
+@media (min-width:860px){main{padding-bottom:120px!important}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -198,9 +256,16 @@ function openModal(html, onMount){
   const m=$("#modal");
   m.innerHTML = '<div class="ov"><div class="sheet">'+html+'</div></div>';
   $(".ov",m).addEventListener("mousedown",e=>{ if(e.target.classList.contains("ov")) closeModal(); });
-  onMount && onMount($(".sheet",m));
+  const sh=$(".sheet",m); (function(){ let y0=null,dy=0; sh.addEventListener("touchstart",e=>{ if(sh.scrollTop<=0 && e.touches[0].clientY-sh.getBoundingClientRect().top<46){ y0=e.touches[0].clientY; dy=0; sh.style.animation="none"; sh.style.transition="none"; } },{passive:true}); sh.addEventListener("touchmove",e=>{ if(y0==null) return; dy=Math.max(0,e.touches[0].clientY-y0); sh.style.transform="translateY("+dy+"px)"; },{passive:true}); sh.addEventListener("touchend",()=>{ if(y0==null) return; y0=null; if(dy>110){ closeModal(); } else { sh.style.transition="transform .4s cubic-bezier(.32,1.28,.5,1)"; sh.style.transform="none"; } }); })();
+  onMount && onMount(sh);
 }
-function closeModal(){ $("#modal").innerHTML=""; if(typeof needRender!=="undefined" && needRender) softRender(); }
+function closeModal(){
+  const m=$("#modal"), ov=$(".ov",m);
+  if(!ov){ if(typeof needRender!=="undefined" && needRender) softRender(); return; }
+  if(ov.classList.contains("out")) return;
+  ov.classList.add("out");
+  setTimeout(()=>{ if($(".ov",m)===ov){ m.innerHTML=""; if(typeof needRender!=="undefined" && needRender) softRender(); } },210);
+}
 function confirmBox(text, yes){
   openModal(`<h2>${esc(text)}</h2><div class="row" style="margin-top:16px"><button class="btn sec" id="n">Yo'q</button><button class="btn red" id="y">Ha, o'chirish</button></div>`,
     s=>{ $("#n",s).onclick=closeModal; $("#y",s).onclick=()=>{closeModal();yes();}; });
@@ -567,7 +632,7 @@ async function snapModal(){
 const IKEY="savdo_intro_v1";
 const INTRO=[
  ["📦","Ombor: nima tugaganini oldindan biling","Tovar va sonini yozing. Qolgani oz bo'lsa, ilova bosh sahifada ogohlantiradi. Mijoz so'rab «yo'q» bo'lsa, uni yozib qo'ying, qaysi mol kerakligini bilasiz."],
- ["🛒","Savdoni yozing","Har bir savdo summasini yozing va «Savdoga qo'shish» ni bosing. Nasiyaga bersangiz, mijozni tanlang. Qarz o'zi daftarga tushadi."],
+ ["🛒","Savdoni yozing","Savdo summasini yozing va «Naqd savdo» ni bosing: tayyor. Nasiyaga bersangiz, «Nasiya» ni bosib mijozni tanlang, qarz o'zi daftarga tushadi."],
  ["📒","Qarz daftari","Kim qancha qarz ekani doim ko'z oldingizda. Mijoz qarzini qaytarsa, «To'lov» yozasiz. Qog'ozdagi daftar kerak emas."],
  ["📈","Foyda va statistika","Bugun, shu hafta va shu oyda qancha sotdingiz va qancha foyda qildingiz. O'tgan davr bilan solishtirish ham bor."],
  ["🛡","Ma'lumot xavfsiz","Ilova har kuni o'zi zaxira oladi. O'chirilgan narsa 30 kun savatda turadi. Xodimlar bilan bir daftarni ko'rish uchun Sozlama → ☁ umumiy daftar."]
@@ -592,12 +657,20 @@ const ICONS = {
   box:'<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
   set:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'
 };
-const TABS = [["calc","Savdo"],["debt","Qarzlar"],["box","Ombor"],["cap","Kapital"],["stat","Statistika"],["set","Sozlama"]];
+const TABS = [["calc","Savdo"],["debt","Qarzlar"],["box","Ombor"],["stat","Hisobot"],["set","Sozlama"]];
 let tab = "calc", openCustomer = null, period = "day";
 function renderNav(){
-  $("#nav").innerHTML = TABS.map(([k,l])=>`<button data-k="${k}" class="${tab===k?"on":""}">${ICONS[k]}<span>${l}</span></button>`).join("");
-  $("#nav").querySelectorAll("button").forEach(b=>b.onclick=()=>{ tab=b.dataset.k; openCustomer=null; render(); });
+  const nv=$("#nav");
+  if(!nv.querySelector("button")){
+    nv.innerHTML = '<i id="ind"></i>'+TABS.map(([k,l])=>`<button data-k="${k}">${ICONS[k]}<span>${l}</span></button>`).join("");
+    nv.querySelectorAll("button").forEach(b=>b.onclick=()=>{ if(tab!==b.dataset.k) buzz(); tab=b.dataset.k; openCustomer=null; render(); });
+  }
+  let act=null; nv.querySelectorAll("button").forEach(b=>{ const on=tab===b.dataset.k; b.classList.toggle("on",on); if(on) act=b; });
+  const ind=$("#ind"); if(ind&&act){ ind.style.left=act.offsetLeft+"px"; ind.style.width=act.offsetWidth+"px"; }
 }
+function buzz(){ try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){} }
+window.addEventListener("resize",()=>{ try{ renderNav(); }catch(e){} });
+document.addEventListener("click",e=>{ if(e.target.closest&&e.target.closest("button.btn")) buzz(); },true);
 function render(){
   const LS=licState();
   $("#shopName").textContent = DB.settings.shop || "Savdo Hisobi";
@@ -606,13 +679,13 @@ function render(){
   $("#nav").style.display="";
   renderNav();
   const v=$("#view");
-  ({calc:viewCalc,debt:viewDebt,box:viewStock,cap:viewCap,stat:viewStat,set:viewSet})[tab](v);
+  ({calc:viewCalc,debt:viewDebt,box:viewStock,stat:viewRep,set:viewSet})[tab](v);
   v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in");
   $("main").scrollTop = 0;
 }
 
 /* ============ 1) SAVDO QO'SHISH ============ */
-function askAddSale(amount){
+function askAddSale(amount,opt){
   const custOpts = DB.customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
   openModal(`
     <h2>Savdoni qo'shish</h2>
@@ -632,6 +705,7 @@ function askAddSale(amount){
   s=>{
     const dBox=$("#debtBox",s), sel=$("#sCust",s), nw=$("#sNew",s);
     if(!DB.customers.length){ sel.value="__new"; nw.style.display="block"; }
+    if(opt&&opt.debt){ $("#sDebt",s).checked=true; dBox.style.display="block"; }
     $("#sDebt",s).onchange=e=>{ dBox.style.display=e.target.checked?"block":"none"; };
     sel.onchange=()=>{ nw.style.display = sel.value==="__new"?"block":"none"; };
     $("#no",s).onclick=closeModal;
@@ -699,7 +773,8 @@ function viewCalc(v){
     <h3>＋ Yangi savdo</h3>
     <input id="amt" inputmode="numeric" placeholder="Summa, masalan 45 000" style="font-size:22px;font-weight:700">
     <div class="chips">${[5000,10000,20000,50000,100000].map(n=>`<button data-add="${n}">+${num(n)}</button>`).join("")}<button id="clr">Tozalash</button></div>
-    <button class="btn full" id="addS" style="margin-top:12px;font-size:17px;padding:14px">＋ Savdoga qo'shish</button>
+    <div class="row" style="margin-top:12px"><button class="btn" id="addS" style="flex:2;font-size:17px;padding:14px">✓ Naqd savdo</button><button class="btn sec" id="addN" style="flex:1;font-size:15px;padding:14px">📒 Nasiya</button></div>
+    <div style="text-align:center;margin-top:10px"><a href="#" id="moreS" style="color:var(--pri);font-size:13px;font-weight:600">Tannarx, izoh yoki ombor bilan…</a></div>
   </div>
   ${lowL.out.length||lowL.low.length?`<div class="card" style="border-left:5px solid var(--red,#dc2626)"><div class="spread"><h3 style="margin:0">⚠ Omborni tekshiring</h3><button class="btn sec sm" id="goBox">Ombor →</button></div><div style="margin-top:6px;font-size:14px">${lowL.out.length?`<b>Tugagan:</b> ${lowL.out.slice(0,5).map(x=>esc(x.name)).join(", ")}${lowL.out.length>5?" va yana "+(lowL.out.length-5):""}<br>`:""}${lowL.low.length?`<b>Oz qolgan:</b> ${lowL.low.slice(0,5).map(x=>esc(x.name)+" ("+x.qty+")").join(", ")}`:""}</div></div>`:""}
   ${top.length?`<div class="card"><div class="spread"><h3 style="margin:0">Eng katta qarzlar</h3><button class="btn sec sm" id="allD">Hammasi →</button></div>
@@ -709,12 +784,15 @@ function viewCalc(v){
     <div class="list">${ts.length? ts.slice().reverse().map(s=>`
       <div class="item"><div><div class="t">${som(s.amount)} ${s.customerId?'<span class="badge r">nasiya</span>':''}</div>
       <div class="s">${new Date(s.ts).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}${s.note?" · "+esc(s.note):""}</div></div>
-      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty"><div style="font-size:34px;margin-bottom:6px">🧾</div>Hali savdo yo\'q.<br>Yuqoriga summani yozing va «Savdoga qo\'shish» ni bosing.</div>'}</div>
+      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty"><div style="font-size:34px;margin-bottom:6px">🧾</div>Hali savdo yo\'q.<br>Yuqoriga summani yozing va «Naqd savdo» ni bosing.</div>'}</div>
   </div>`;
   const ai=$("#amt",v), fmt=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g," ");
   ai.oninput=()=>{ ai.value=fmt(ai.value.replace(/\D/g,"")); };
-  const go=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return; } askAddSale(n); };
+  const amt=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return 0; } return n; };
+  const go=()=>{ const n=amt(); if(!n) return; DB.sales.push({id:uid(),date:today(),ts:Date.now(),amount:n,cost:null,note:""}); save(); toast("Qo'shildi ✓ "+som(n)); render(); setTimeout(()=>{ const a=$("#amt"); a&&a.focus(); },50); };
   $("#addS",v).onclick=go; ai.onkeydown=e=>{ if(e.key==="Enter") go(); };
+  $("#addN",v).onclick=()=>{ const n=amt(); if(n) askAddSale(n,{debt:true}); };
+  $("#moreS",v).onclick=e=>{ e.preventDefault(); const n=amt(); if(n) askAddSale(n); };
   v.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const cur=parseInt(ai.value.replace(/\D/g,""),10)||0; ai.value=fmt(cur+(+b.dataset.add)); });
   $("#clr",v).onclick=()=>{ ai.value=""; ai.focus(); };
   $("#rep",v).onclick=()=>shareModal("Hisobotni ulashish",reportText());
@@ -963,28 +1041,33 @@ function chartSvg(rows,p){
   return s;
 }
 
+/* ============ HISOBOT (statistika + kapital) ============ */
+let repSub="stat";
+function viewRep(v){
+  (repSub==="cap"?viewCap:viewStat)(v);
+  v.insertAdjacentHTML("afterbegin",`<div class="seg"><button data-r="stat" class="${repSub==="stat"?"on":""}">📊 Statistika</button><button data-r="cap" class="${repSub==="cap"?"on":""}">💰 Kapital va foyda</button></div>`);
+  v.querySelectorAll(".seg [data-r]").forEach(b=>b.onclick=()=>{ repSub=b.dataset.r; render(); });
+}
+
 /* ============ 5) SOZLAMA / ZAXIRA ============ */
 function viewSet(v){
   v.innerHTML = `
   ${(()=>{const LS=licState();return LS.active?`<div class="note" style="background:var(--pri-soft);color:var(--pri)">✅ Faollashtirilgan: <b>${esc(LS.name)}</b></div>`:`<div class="card"><h3>Sinov: ${LS.left} kun qoldi</h3>${actHtml()}</div>`;})()}
-  ${cloudCardHtml()}
-  <div class="card"><h3>🗑 Savat</h3><div class="mut" style="font-size:13px;margin-bottom:10px">O'chirilgan mijoz, savdo va yozuvlarni ${TRASH_DAYS} kun ichida qaytarish mumkin.</div><button class="btn sec full" id="trBtn">Savatni ochish (${DB.trash.length})</button></div>
-  <div class="card"><h3>🛟 Avto-zaxira</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Ilova har kuni o'zi nusxa saqlaydi. Hech narsa qilish shart emas.</div><button class="btn sec full" id="snBtn">Zaxiralarni ko'rish</button></div>
-  <div class="card"><h3>📖 Qo'llanma</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Ilova qanday ishlashini qisqa ko'rsatadi.</div><button class="btn sec full" id="inBtn">Tanishtiruvni ko'rish</button></div>
-  <div class="card" id="instCard"><h3>Ilovani telefonga / kompyuterga o'rnatish</h3>
-    <button class="btn full" id="instBtn" style="display:none">⬇ O'rnatish</button>
-    <div class="mut" style="font-size:13px;margin-top:8px"><b>Android (Chrome):</b> ⋮ menyu → «Ilovani o'rnatish» yoki «Bosh ekranga qo'shish».<br><b>iPhone (Safari):</b> «Ulashish» tugmasi → «Bosh ekranga qo'shish».<br><b>Windows (Chrome/Edge):</b> manzil qatoridagi ⬇ belgisi → «O'rnatish».</div></div>
   <div class="card"><h3>Do'kon</h3>
     <label>Do'kon nomi</label><input id="shop" value="${esc(DB.settings.shop)}" placeholder="Masalan: Bunyod savdo">
     <label>Foyda foizi, % (tannarx kiritilmagan savdolar uchun)</label><input id="mg" inputmode="decimal" value="${DB.settings.margin}">
     <button class="btn full" id="sv" style="margin-top:14px">Saqlash</button></div>
-  <div class="card"><h3>Zaxira nusxa</h3>
-    <div class="mut" style="font-size:13px;margin-bottom:10px">Ma'lumotlar shu qurilmaning o'zida saqlanadi. Telefon almashtirsangiz yoki dasturni o'chirsangiz yo'qolmasligi uchun vaqti-vaqti bilan zaxira oling.</div>
-    <div class="row"><button class="btn sec" id="bk">Zaxira matnini ko'rsatish</button><button class="btn sec" id="fl">Faylga saqlash</button></div>
-    <label>Tiklash uchun zaxira matnini shu yerga qo'ying</label><textarea id="rs" rows="3" placeholder="{…}"></textarea>
-    <div class="row" style="margin-top:8px"><button class="btn" id="rb">Matndan tiklash</button><button class="btn sec" id="rf">Fayldan tiklash</button></div>
-    <input type="file" id="file" accept=".json,application/json" style="display:none"></div>
-  ${CL.id?"":`<div class="card"><h3>Xavfli zona</h3><button class="btn red full" id="wipe">Barcha ma'lumotlarni o'chirish</button></div>`}
+  <details class="card"${CL.id?" open":""}><summary>☁ Xodimlar uchun umumiy daftar</summary>${cloudCardHtml()}</details>
+  <details class="card"><summary>🛟 Zaxira va savat</summary>
+    <div class="mut" style="font-size:13px;margin-bottom:10px">Ilova har kuni o'zi nusxa saqlaydi. O'chirilgan narsa ${TRASH_DAYS} kun savatda turadi.</div>
+    <div class="row" style="margin-bottom:8px"><button class="btn sec" id="trBtn">🗑 Savat (${DB.trash.length})</button><button class="btn sec" id="snBtn">Zaxiralar</button></div>
+    <div class="row"><button class="btn sec" id="fl">⬇ Faylga saqlash</button><button class="btn sec" id="rf">⬆ Fayldan tiklash</button></div>
+    <input type="file" id="file" accept=".json,application/json" style="display:none">
+    ${CL.id?"":`<button class="btn red full" id="wipe" style="margin-top:14px">Barcha ma'lumotlarni o'chirish</button>`}</details>
+  <details class="card" id="instCard"><summary>📖 Qo'llanma va o'rnatish</summary>
+    <button class="btn sec full" id="inBtn">Tanishtiruvni ko'rish</button>
+    <button class="btn full" id="instBtn" style="display:none;margin-top:8px">⬇ Ilovani o'rnatish</button>
+    <div class="mut" style="font-size:13px;margin-top:10px"><b>Android (Chrome):</b> ⋮ menyu → «Ilovani o'rnatish».<br><b>iPhone (Safari):</b> «Ulashish» → «Bosh ekranga qo'shish».<br><b>Windows:</b> manzil qatoridagi ⬇ → «O'rnatish».</div></details>
   <div class="mut" style="text-align:center;font-size:12px">Savdo Hisobi · internetsiz ishlaydi</div>`;
   if($("#lok")) bindAct(v);
   bindCloud(v);
@@ -992,20 +1075,17 @@ function viewSet(v){
   $("#snBtn").onclick=snapModal;
   $("#inBtn").onclick=()=>introModal(0);
   const ib=$("#instBtn");
-  if(window.matchMedia("(display-mode: standalone)").matches){ $("#instCard").style.display="none"; }
-  else if(deferredPrompt){ ib.style.display="block"; ib.onclick=async()=>{ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; ib.style.display="none"; }; }
+  if(!window.matchMedia("(display-mode: standalone)").matches && deferredPrompt){ ib.style.display="block"; ib.onclick=async()=>{ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; ib.style.display="none"; }; }
   $("#sv").onclick=()=>{ DB.settings.shop=$("#shop").value.trim(); DB.settings.margin=Math.max(0,Math.min(100,val($("#mg")))); save(); render(); toast("Saqlandi ✓"); };
-  $("#bk").onclick=()=>openModal(`<h2>Zaxira matni</h2><div class="mut" style="font-size:13px">Hammasini belgilab nusxa oling va xavfsiz joyga (Telegram «Saved messages») saqlang.</div><textarea id="bt" rows="8" readonly style="margin-top:10px">${esc(JSON.stringify(DB))}</textarea><div class="row" style="margin-top:12px"><button class="btn sec" id="x">Yopish</button><button class="btn" id="cp">Nusxa olish</button></div>`,
-    s=>{ $("#x",s).onclick=closeModal; $("#cp",s).onclick=async()=>{ const t=$("#bt",s); t.select(); try{ await navigator.clipboard.writeText(t.value);}catch(e){ document.execCommand("copy"); } markBackup(); toast("Nusxa olindi ✓"); }; });
   $("#fl").onclick=()=>{ const b=new Blob([JSON.stringify(DB)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="savdo-zaxira-"+today()+".json"; document.body.appendChild(a); a.click(); a.remove(); markBackup(); toast("Fayl yuklandi"); };
   const restore = txt => { try{ const o=JSON.parse(txt); if(!o||!Array.isArray(o.sales)) throw 0; confirmBox("Hozirgi ma'lumotlar zaxiradagi bilan almashtirilsinmi?",()=>{ load(o); persistLocal(true); cloudPush(); render(); toast("Tiklandi ✓"); }); }catch(e){ toast("Zaxira noto'g'ri"); } };
-  $("#rb").onclick=()=>restore($("#rs").value);
   $("#rf").onclick=()=>$("#file").click();
   $("#file").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>restore(r.result); r.readAsText(f); };
   if($("#wipe")) $("#wipe").onclick=()=>confirmBox("HAMMA ma'lumot o'chadi. Davom etasizmi?",()=>{ load(null); persistLocal(true); render(); });
 }
 
 /* ============ Ishga tushirish ============ */
+(function(){ const m=document.querySelector("main"),h=document.querySelector("header"); let t=false; m.addEventListener("scroll",()=>{ if(t) return; t=true; requestAnimationFrame(()=>{ h.classList.toggle("sc",m.scrollTop>24); t=false; }); },{passive:true}); })();
 let deferredPrompt=null;
 window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; if(tab==="set") render(); });
 boot();
