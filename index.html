@@ -213,6 +213,34 @@ button.btn.red{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,2
 .bizseg{margin-top:4px}
 .pr{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;align-items:center}
 .pr:last-child{border:0}
+
+/* ===== v2: kuchaytirilgan Liquid Glass ===== */
+:root{--spec:inset 0 1.5px 0 rgba(255,255,255,.8),inset 0 -1.5px 1px rgba(0,0,0,.12),inset 0 0 0 1px rgba(255,255,255,.2)}
+body:before{animation:drift 14s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate3d(4%,3%,0) scale(1.1)}}
+button.btn,.abtn{min-height:48px;border-radius:999px!important;letter-spacing:-.01em}
+button.btn.sm{min-height:34px;padding:7px 15px}
+button.btn:not(.sec):not(.red){background:linear-gradient(180deg,rgba(255,255,255,.45) 0,rgba(255,255,255,.08) 46%,rgba(255,255,255,0) 50%),linear-gradient(135deg,#1bbfb0,#0f766e 58%,#0b5d56)!important;box-shadow:var(--spec),0 12px 26px -8px rgba(15,118,110,.8),0 2px 4px rgba(15,118,110,.3)!important}
+button.btn.sec,.abtn{box-shadow:var(--spec),0 6px 16px -6px rgba(15,118,110,.35)!important}
+button.btn::after,.abtn::after,.keys button::after,.chips button::after{content:"";position:absolute;top:-10%;bottom:-10%;left:-70%;width:40%;z-index:-1;pointer-events:none;opacity:0;background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);transform:skewX(-20deg)}
+button.btn:active::after,.abtn:active::after,.keys button:active::after,.chips button:active::after{opacity:1;left:140%;transition:left .65s ease,opacity .65s}
+button.btn:active,.abtn:active{filter:brightness(1.06) saturate(1.15)}
+.card,.stat{background:linear-gradient(180deg,rgba(255,255,255,.92),rgba(255,255,255,.66))!important;backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 #fff,inset 0 0 0 .5px rgba(255,255,255,.6),0 14px 30px -14px rgba(15,60,55,.3)!important}
+.hero{background:linear-gradient(135deg,#19b3a5,#0f766e 45%,#0a4a45)!important;box-shadow:var(--spec),0 24px 40px -16px rgba(15,118,110,.75)!important}
+.hero:before{content:"";position:absolute;inset:-60%;background:conic-gradient(from 0deg,transparent 0,rgba(255,255,255,.22) 12%,transparent 30%);animation:spin 10s linear infinite;pointer-events:none}
+.hero>*{position:relative;z-index:1}
+@keyframes spin{to{transform:rotate(360deg)}}
+nav{backdrop-filter:blur(32px) saturate(210%)!important;-webkit-backdrop-filter:blur(32px) saturate(210%)!important;box-shadow:inset 0 1.5px 0 rgba(255,255,255,.85),inset 0 -1px 0 rgba(255,255,255,.25),0 20px 40px -10px rgba(0,0,0,.3)!important}
+#ind{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 0 0 .5px rgba(15,118,110,.3),0 4px 14px rgba(15,118,110,.3)!important}
+nav button svg{transition:transform .5s var(--spring)}
+nav button.on svg{transform:translateY(-2px) scale(1.15)}
+.seg button.on{box-shadow:var(--spec),0 4px 12px rgba(0,0,0,.14)!important}
+.list>div.item.click{transition:transform .3s var(--spring),background .2s}
+.list>div.item.click:active{transform:scale(.97);background:var(--pri-soft);border-radius:14px}
+.view-in>*{animation:rise .65s var(--spring) both}
+.view-in>*:nth-child(2){animation-delay:.05s}.view-in>*:nth-child(3){animation-delay:.1s}.view-in>*:nth-child(4){animation-delay:.15s}.view-in>*:nth-child(5){animation-delay:.2s}.view-in>*:nth-child(n+6){animation-delay:.25s}
+@keyframes rise{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-color-scheme:dark){.card,.stat{background:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.03)),rgba(28,28,30,.72)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 14px 30px -14px rgba(0,0,0,.8)!important}nav{box-shadow:inset 0 1.5px 0 rgba(255,255,255,.25),0 20px 40px -10px rgba(0,0,0,.7)!important}}
 </style>
 <script>
 var THK="savdo_theme_v1",LGK="savdo_lang_v1",THEME="auto",LANG="uz";
@@ -1119,6 +1147,7 @@ function viewSet(v){
 (function(){
   const sel="button.btn,.abtn,.chips button,.hbtn,.keys button,.seg button,nav button";
   document.addEventListener("pointerdown",e=>{ const b=e.target.closest&&e.target.closest(sel); if(!b) return; const r=b.getBoundingClientRect(); b.style.setProperty("--px",(e.clientX-r.left)+"px"); b.style.setProperty("--py",(e.clientY-r.top)+"px"); b.classList.remove("jl"); },{passive:true});
+  document.addEventListener("pointermove",e=>{ if(!e.buttons&&e.pointerType==="mouse") return; const b=e.target.closest&&e.target.closest(sel); if(!b) return; const r=b.getBoundingClientRect(); b.style.setProperty("--px",(e.clientX-r.left)+"px"); b.style.setProperty("--py",(e.clientY-r.top)+"px"); },{passive:true});
   document.addEventListener("pointerup",e=>{ const b=e.target.closest&&e.target.closest(sel); if(!b) return; void b.offsetWidth; b.classList.add("jl"); setTimeout(()=>b.classList.remove("jl"),600); },{passive:true});
   document.addEventListener("click",e=>{ if(e.target.closest&&e.target.closest(".keys button,.seg button,.chips button")) buzz(); },true);
 })();
