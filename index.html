@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#f2f2f7"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Tez Hisob</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png?v=2"><link rel="apple-touch-icon" href="icon-192.png?v=2">
 <style>
 :root{
   --bg:#f4f5fb;--card:#fff;--ink:#14152b;--mut:#6b6f8a;--line:#e3e5f1;
@@ -24,6 +24,7 @@ body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background
 #app{display:flex;flex-direction:column;height:100%;height:100dvh}
 header{background:var(--pri);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;justify-content:space-between}
 header h1{font-size:18px;margin:0;font-weight:700}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}.brand h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qk{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.qk button{border:0;border-radius:14px;padding:10px 14px;background:var(--pri-soft);color:var(--pri);font-weight:700;font-size:15px;cursor:pointer;text-align:left;line-height:1.2}.qk button small{display:block;font-weight:500;opacity:.8;font-size:12px}.qk button:active{transform:scale(.95)}
 header small{opacity:.85}
 main{flex:1;overflow-y:auto;padding:14px 14px 24px;-webkit-overflow-scrolling:touch}
 .wrap{max-width:900px;margin:0 auto}
@@ -195,12 +196,15 @@ input[type=checkbox]:checked:after{transform:translateX(20px)}
 @keyframes toastin{from{opacity:0;transform:translate(-50%,-30px) scale(.9)}to{opacity:1;transform:translate(-50%,0)}}
 @media (min-width:860px){main{padding-bottom:120px!important}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.toast.u{pointer-events:auto}.toast button{margin-left:12px;border:0;background:var(--pri);color:#fff;border-radius:14px;padding:5px 11px;font-weight:700;font-size:13px;cursor:pointer}
+.fq{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 2px}.fq button{border:0;background:var(--pri-soft);color:var(--pri);border-radius:18px;padding:8px 13px;font-weight:700;font-size:14px;cursor:pointer}
+.rb{border:0;background:var(--pri-soft);color:var(--pri);border-radius:50%;width:38px;height:38px;font-size:17px;cursor:pointer;flex:none}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="col">
-    <header><h1 id="shopName">Tez Hisob</h1><small><span id="cloudSt"></span> <span id="todayLbl"></span></small></header>
+    <header><div class="brand"><svg id="lg" viewBox="0 0 100 100" width="32" height="32"><defs><linearGradient id="lgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c83ff"/><stop offset="1" stop-color="#3730a3"/></linearGradient><linearGradient id="lgb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset="1" stop-color="#fbbf24"/></linearGradient></defs><rect width="100" height="100" rx="24" fill="url(#lgg)"/><polygon points="58,9 23,56 45,56 38,92 77,41 55,41" fill="url(#lgb)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg><h1 id="shopName">Tez Hisob</h1></div><small><span id="cloudSt"></span> <span id="todayLbl"></span></small></header>
     <main><div class="wrap" id="view"></div></main>
   </div>
   <nav id="nav"></nav>
@@ -222,6 +226,7 @@ function load(raw){
   DB.exp = DB.exp || [];
   DB.orders = DB.orders || [];
   DB.recipes = DB.recipes || [];
+  DB.quick = DB.quick || [];
   DB.settings = Object.assign({shop:"",margin:20}, DB.settings||{});
   if(!DB.settings.trialStart){ try{ DB.settings.trialStart = getLic().first; }catch(e){} }
 }
@@ -247,7 +252,9 @@ function num(x){ // 1 234 567,5
 }
 const som = x => num(x)+" so'm";
 const val = el => { const v = parseFloat(String(el.value).replace(/\s/g,"").replace(",",".")); return isNaN(v)?0:v; };
-function toast(t){ const e=document.createElement("div"); e.className="toast"; e.textContent=t; document.body.appendChild(e); setTimeout(()=>e.remove(),2200); }
+function toast(t,undo){ const e=document.createElement("div"); e.className="toast"; e.textContent=t;
+  if(undo){ e.classList.add("u"); const b=document.createElement("button"); b.textContent="↩ Bekor qilish"; b.onclick=()=>{ e.remove(); undo(); }; e.appendChild(b); }
+  document.body.appendChild(e); setTimeout(()=>e.remove(),undo?5000:2200); }
 function saleProfit(s){
   if(s.cost!=null && s.cost!=="") return s.amount - s.cost;
   return s.amount * (DB.settings.margin||0)/100;
@@ -356,7 +363,7 @@ function flat(d){
   d.capital.forEach(c=>{ o["capital/"+c.id]=clean(c); });
   (d.trash||[]).forEach(t=>{ o["trash/"+t.id]=clean(t); });
   o["meta/settings"]=clean(d.settings);
-  o["meta/extra"]=clean({exp:d.exp||[],orders:d.orders||[],recipes:d.recipes||[]});
+  o["meta/extra"]=clean({exp:d.exp||[],orders:d.orders||[],recipes:d.recipes||[],quick:d.quick||[]});
   return o;
 }
 function normCode(s){ return String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
@@ -418,7 +425,7 @@ function rebuildFromSynced(){
   DB.capital = cap.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   DB.trash = tr.sort((a,b)=>b.ts-a.ts);
   if(st) DB.settings = Object.assign({shop:"",margin:20}, st);
-  if(sk){ DB.exp=sk.exp||[]; DB.orders=sk.orders||[]; DB.recipes=sk.recipes||[]; }
+  if(sk){ DB.exp=sk.exp||[]; DB.orders=sk.orders||[]; DB.recipes=sk.recipes||[]; DB.quick=sk.quick||[]; }
   CL.lastFlat = flat(DB);
   persistLocal();
 }
@@ -761,11 +768,13 @@ function viewCalc(v){
   const T=dayTotals(t), Y=dayTotals(y);
   let cmp="Kecha savdo bo'lmagan";
   if(Y.sum>0){ const pc=Math.round((T.sum-Y.sum)/Y.sum*1000)/10; cmp=(pc>=0?"▲ +":"▼ ")+pc+"% kechaga nisbatan"; }
+  const fm={}; DB.sales.slice(-200).forEach(s=>{ fm[s.amount]=(fm[s.amount]||0)+1; }); const freq=Object.keys(fm).filter(k=>fm[k]>=3).sort((a,b)=>fm[b]-fm[a]).slice(0,4).map(Number);
   const mx=mode()==='maker', eA=mx?null:expAlert(), oA=mx?ordAlert():[];
   const ts=DB.sales.filter(s=>s.date===t);
   const top=DB.customers.filter(c=>balance(c)>0).sort((a,b)=>balance(b)-balance(a)).slice(0,3);
   const hr=new Date().getHours(), gr=hr<5?"Xayrli tun":hr<12?"Xayrli tong":hr<18?"Xayrli kun":"Xayrli kech";
   v.innerHTML = `
+  ${hasDemo()?`<div class="note" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span>🎬 Namuna ma'lumot ko'rsatilmoqda</span><button class="btn sm" id="demoX" style="padding:6px 12px">Tozalash</button></div>`:""}
   <div class="hero">
     <div class="spread"><div class="hl">${gr}! Bugungi savdo</div><button class="hbtn" id="rep">📤 Hisobot</button></div>
     <div class="hv">${som(T.sum)}</div>
@@ -775,10 +784,13 @@ function viewCalc(v){
   <div class="card">
     <h3>＋ Yangi savdo</h3>
     <input id="amt" inputmode="numeric" placeholder="Summa, masalan 45 000" style="font-size:22px;font-weight:700">
+    ${freq.length?`<div class="mut" style="font-size:12px;margin-top:10px">Ko'p sotiladigan summalar:</div><div class="chips" style="margin-top:4px">${freq.map(n=>`<button data-set="${n}">${num(n)}</button>`).join("")}</div>`:""}
     <div class="chips">${[5000,10000,20000,50000,100000].map(n=>`<button data-add="${n}">+${num(n)}</button>`).join("")}<button id="clr">Tozalash</button></div>
     <div class="row" style="margin-top:12px"><button class="btn" id="addS" style="flex:2;font-size:17px;padding:14px">✓ Naqd savdo</button><button class="btn sec" id="addN" style="flex:1;font-size:15px;padding:14px">📒 Nasiya</button></div>
     <div style="text-align:center;margin-top:10px"><a href="#" id="moreS" style="color:var(--pri);font-size:13px;font-weight:600">Tannarx yoki izoh bilan…</a></div>
   </div>
+  ${quickCard()}
+  ${!hasDemo()&&!DB.sales.length&&!DB.customers.length&&!DB.orders.length?`<div class="card" style="text-align:center"><div style="font-size:30px">👀</div><h3 style="margin:4px 0">Ilova qanday ishlashini ko'ring</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Namuna ma'lumot bilan 1 daqiqada hammasini ko'rasiz. Keyin bir bosishda tozalanadi.</div><button class="btn full" id="ldDemo">Namuna bilan ko'rish</button></div>`:""}
   ${!mx&&(eA.out.length||eA.soon.length)?`<div class="card" style="border-left:5px solid var(--down)"><div class="spread"><h3 style="margin:0">⏰ Muddatni tekshiring</h3><button class="btn sec sm" id="goExp">Muddat →</button></div><div style="margin-top:6px;font-size:14px">${eA.out.length?`<b>O'tgan:</b> ${eA.out.slice(0,4).map(x=>esc(x.name)).join(", ")}${eA.out.length>4?" va yana "+(eA.out.length-4):""}<br>`:""}${eA.soon.length?`<b>3 kun ichida:</b> ${eA.soon.slice(0,4).map(x=>esc(x.name)+" ("+x.n+" k)").join(", ")}`:""}</div></div>`:""}
   ${mx&&oA.length?`<div class="card" style="border-left:5px solid var(--down)"><div class="spread"><h3 style="margin:0">📋 Muddati yaqin buyurtmalar</h3><button class="btn sec sm" id="goOrd">Buyurtma →</button></div><div style="margin-top:6px;font-size:14px">${oA.slice(0,4).map(o=>esc(o.client)+": "+esc(o.what)+" "+ordDue(o)).join("<br>")}</div></div>`:""}
   ${top.length?`<div class="card"><div class="spread"><h3 style="margin:0">Eng katta qarzlar</h3><button class="btn sec sm" id="allD">Hammasi →</button></div>
@@ -793,15 +805,19 @@ function viewCalc(v){
   const ai=$("#amt",v), fmt=n=>String(n).replace(/\B(?=(\d{3})+(?!\d))/g," ");
   ai.oninput=()=>{ ai.value=fmt(ai.value.replace(/\D/g,"")); };
   const amt=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return 0; } return n; };
-  const go=()=>{ const n=amt(); if(!n) return; DB.sales.push({id:uid(),date:today(),ts:Date.now(),amount:n,cost:null,note:""}); save(); toast("Qo'shildi ✓ "+som(n)); render(); setTimeout(()=>{ const a=$("#amt"); a&&a.focus(); },50); };
+  const go=()=>{ const n=amt(); if(!n) return; const sid=uid(); DB.sales.push({id:sid,date:today(),ts:Date.now(),amount:n,cost:null,note:""}); save(); toast("Qo'shildi ✓ "+som(n),()=>{ DB.sales=DB.sales.filter(x=>x.id!==sid); save(); render(); }); render(); setTimeout(()=>{ const a=$("#amt"); a&&a.focus(); },50); };
   $("#addS",v).onclick=go; ai.onkeydown=e=>{ if(e.key==="Enter") go(); };
   $("#addN",v).onclick=()=>{ const n=amt(); if(n) askAddSale(n,{debt:true}); };
   $("#moreS",v).onclick=e=>{ e.preventDefault(); const n=amt(); if(n) askAddSale(n); };
+  v.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ ai.value=fmt(+b.dataset.set); });
   v.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{ const cur=parseInt(ai.value.replace(/\D/g,""),10)||0; ai.value=fmt(cur+(+b.dataset.add)); });
   $("#clr",v).onclick=()=>{ ai.value=""; ai.focus(); };
   $("#rep",v).onclick=()=>shareModal("Hisobotni ulashish",reportText());
+  if($("#demoX",v)) $("#demoX",v).onclick=()=>{ clearDemo(); toast("Namuna tozalandi"); };
   if($("#goExp",v)) $("#goExp",v).onclick=()=>{ tab="exp"; render(); };
   if($("#goOrd",v)) $("#goOrd",v).onclick=()=>{ tab="ord"; render(); };
+  bindQuick(v);
+  if($("#ldDemo",v)) $("#ldDemo",v).onclick=()=>{ loadDemo(); toast("Namuna yuklandi ✓"); };
   if($("#allD",v)) $("#allD",v).onclick=()=>{ tab="debt"; openCustomer=null; render(); };
   v.querySelectorAll("[data-c]").forEach(d=>d.onclick=()=>{ tab="debt"; openCustomer=d.dataset.c; render(); });
   v.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>askBox("Bu savdo savatga o'tkaziladi (30 kun ichida qaytarish mumkin).","Savatga o'tkazish",()=>{
@@ -811,6 +827,31 @@ function viewCalc(v){
     DB.sales=DB.sales.filter(x=>x.id!==b.dataset.del); save(); render(); toast("Savatga o'tdi");}));
 }
 
+
+
+/* ============ TEZ TUGMALAR ============ */
+function quickCard(){
+  const q=DB.quick||[];
+  return `<div class="card"><div class="spread"><h3 style="margin:0">⚡ Tez tugmalar</h3><button class="btn sec sm" id="qEdit">${q.length?"✎ O'zgartirish":"＋ Qo'shish"}</button></div>
+  ${q.length?`<div class="qk">${q.map(x=>`<button data-q="${x.id}">${esc(x.name)}<small>${som(x.price)}</small></button>`).join("")}</div>`:`<div class="mut" style="font-size:13px;margin-top:6px">Tez-tez sotiladigan mollarni qo'shing (masalan: Non 4 000). Keyin bitta bosish bilan savdo yoziladi.</div>`}</div>`;
+}
+function bindQuick(v){
+  v.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{ const x=DB.quick.find(y=>y.id===b.dataset.q); if(!x) return; const sid=uid();
+    DB.sales.push({id:sid,date:today(),ts:Date.now(),amount:x.price,cost:null,note:x.name}); save(); buzz();
+    toast(x.name+" ✓ "+som(x.price),()=>{ DB.sales=DB.sales.filter(s=>s.id!==sid); save(); render(); }); render(); });
+  const e=$("#qEdit",v); if(e) e.onclick=quickModal;
+}
+function quickModal(){
+  const q=DB.quick||[];
+  openModal(`<h2>⚡ Tez tugmalar</h2>
+   ${q.length?`<div class="list">${q.map(x=>`<div class="item"><div><div class="t">${esc(x.name)}</div><div class="s">${som(x.price)}</div></div><button class="btn red sm" data-d="${x.id}">✕</button></div>`).join("")}</div>`:""}
+   <label>Yangi tugma: mol nomi</label><input id="qN" placeholder="Masalan: Non">
+   <label>Narxi, so'm</label><input id="qP" inputmode="decimal" placeholder="4000">
+   <div class="row" style="margin-top:14px"><button class="btn sec" id="x">Yopish</button><button class="btn" id="add">Qo'shish</button></div>`,
+  s=>{ $("#x",s).onclick=closeModal;
+    $("#add",s).onclick=()=>{ const n=$("#qN",s).value.trim(), p=val($("#qP",s)); if(!n){ toast("Nomini yozing"); return; } if(!p){ toast("Narxini yozing"); return; } DB.quick.push({id:uid(),name:n,price:p}); save(); render(); quickModal(); };
+    s.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{ DB.quick=DB.quick.filter(x=>x.id!==b.dataset.d); save(); render(); quickModal(); }); });
+}
 
 /* ============ REJIM (do'kon / ishlab chiqaruvchi) ============ */
 const mode = () => DB.settings.mode==="maker" ? "maker" : "shop";
@@ -822,10 +863,41 @@ function tabsFor(){
 function setMode(m){ DB.settings.mode=m; tab = m==="maker" ? "ord" : "calc"; save(); render(); }
 function modeModal(){
   openModal(`<div style="text-align:center"><div style="font-size:46px;line-height:1.2">👋</div><h2 style="margin:6px 0">Siz nima bilan shug'ullanasiz?</h2>
-   <div class="mut" style="font-size:14px;margin-bottom:14px">Ilova o'zingizga moslab tuziladi. Keyin Sozlamadan o'zgartirish mumkin.</div>
+   <div class="mut" style="font-size:14px;margin-bottom:10px">Ilova o'zingizga moslab tuziladi. Keyin Sozlamadan o'zgartirish mumkin.</div>
+   <input id="mNm" placeholder="Do'kon yoki ustaxona nomi (ixtiyoriy)" value="${esc(DB.settings.shop||"")}" style="margin-bottom:12px;text-align:center">
    <button class="btn full" id="mShop" style="padding:16px;font-size:17px">🏪 Do'kon, savdo<div style="font-size:12px;font-weight:500;opacity:.85;margin-top:2px">Savdo, qarz daftari, muddat nazorati</div></button>
    <button class="btn full" id="mMaker" style="padding:16px;font-size:17px;margin-top:10px">🏭 Ishlab chiqaruvchi, ustaxona<div style="font-size:12px;font-weight:500;opacity:.85;margin-top:2px">Buyurtmalar, tannarx, qarz daftari</div></button></div>`,
-  s=>{ const pick=m=>{ setMode(m); closeModal(); setTimeout(maybeIntro,300); }; $("#mShop",s).onclick=()=>pick("shop"); $("#mMaker",s).onclick=()=>pick("maker"); });
+  s=>{ const pick=m=>{ const nm=$("#mNm",s).value.trim(); if(nm) DB.settings.shop=nm; setMode(m); closeModal(); setTimeout(maybeIntro,300); }; $("#mShop",s).onclick=()=>pick("shop"); $("#mMaker",s).onclick=()=>pick("maker"); });
+}
+
+/* ============ NAMUNA MA'LUMOT (ko'rsatish uchun) ============ */
+function hasDemo(){ return DB.customers.some(c=>String(c.id).startsWith("demo_"))||DB.sales.some(s=>String(s.id).startsWith("demo_")); }
+function loadDemo(){
+  let r=7; const rnd=()=>{ r=(r*9301+49297)%233280; return r/233280; };
+  const T=today(), mk=mode()==="maker";
+  const base=mk?[120000,250000,85000,400000,180000,60000]:[8000,15000,25000,12000,40000,6000,55000,18000];
+  for(let i=20;i>=0;i--){ const d=ymd(addDays(new Date(),-i)), n=2+Math.floor(rnd()*(i===0?3:5));
+    for(let k=0;k<n;k++){ const a=base[Math.floor(rnd()*base.length)]; DB.sales.push({id:"demo_s"+i+"_"+k,date:d,ts:new Date(d+"T"+pad(9+k*2)+":10:00").getTime(),amount:a,cost:Math.round(a*(mk?0.62:0.8)),note:""}); } }
+  const names=["Karim aka","Dilnoza opa","Sardor","Gulnora","Aziz aka","Madina"], amts=[240000,85000,430000,120000,60000,310000];
+  names.forEach((nm,i)=>{ const c={id:"demo_c"+i,name:nm,phone:"+99890"+(1000000+i*137).toString().slice(0,7),note:"",tx:[]};
+    c.tx.push({id:"demo_t"+i+"a",date:ymd(addDays(new Date(),-(12+i))),type:"debt",amount:amts[i],note:""});
+    if(i%2===0) c.tx.push({id:"demo_t"+i+"b",date:ymd(addDays(new Date(),-3)),type:"pay",amount:Math.round(amts[i]/3/1000)*1000,note:""});
+    DB.customers.push(c); });
+  if(mk){
+    DB.orders.push({id:"demo_o1",date:T,client:"Sardor aka",phone:"",what:"2 ta shkaf",total:3000000,paid:1000000,due:ymd(addDays(new Date(),1)),cost:2000000,status:"work",done:false});
+    DB.orders.push({id:"demo_o2",date:T,client:"Nodira",phone:"",what:"30 ta non",total:150000,paid:0,due:ymd(addDays(new Date(),-1)),cost:0,status:"new",done:false});
+    DB.orders.push({id:"demo_o3",date:T,client:"Bahodir",phone:"",what:"Tort (3 kg)",total:420000,paid:420000,due:ymd(addDays(new Date(),4)),cost:0,status:"ready",done:false});
+    DB.recipes.push({id:"demo_r1",name:"Non",qty:30,items:[{n:"Un",c:60000},{n:"Yog'",c:20000}],other:30000,price:5000});
+  } else {
+    [["Sut 1 l",2],["Yogurt",-1],["Non",1],["Guruch 1 kg",90]].forEach((x,i)=>DB.exp.push({id:"demo_e"+i,name:x[0],date:ymd(addDays(new Date(),x[1])),qty:""}));
+  }
+  [["Non",4000],["Sut 1 l",12000],["Yog' 1 l",24000],["Choy",18000]].slice(0,mk?3:4).forEach((x,i)=>DB.quick.push({id:"demo_q"+i,name:x[0],price:x[1]}));
+  save(); render();
+}
+function clearDemo(){
+  const dm=x=>String(x.id).startsWith("demo_");
+  DB.sales=DB.sales.filter(x=>!dm(x)); DB.customers=DB.customers.filter(x=>!dm(x)); DB.orders=DB.orders.filter(x=>!dm(x)); DB.recipes=DB.recipes.filter(x=>!dm(x)); DB.exp=DB.exp.filter(x=>!dm(x)); DB.quick=DB.quick.filter(x=>!dm(x));
+  save(); render();
 }
 
 /* ============ MUDDAT NAZORATI (do'kon) ============ */
@@ -967,24 +1039,27 @@ function viewCost(w){
 
 /* ============ 2) QARZ DAFTARI ============ */
 const balance = c => c.tx.reduce((a,t)=>a+(t.type==="debt"?t.amount:-t.amount),0);
-let debtQuery = "";
+let debtQuery = "", debtOnly = false;
 function viewDebt(v){
   if(openCustomer){ return viewCustomer(v); }
   const total = DB.customers.reduce((a,c)=>a+Math.max(0,balance(c)),0);
   const owing = DB.customers.filter(c=>balance(c)>0).length;
-  const list = DB.customers.filter(c=>c.name.toLowerCase().includes(debtQuery.toLowerCase()))
+  const list = DB.customers.filter(c=>c.name.toLowerCase().includes(debtQuery.toLowerCase())&&(!debtOnly||balance(c)>0))
     .sort((a,b)=>balance(b)-balance(a));
   v.innerHTML = `
   <div class="grid"><div class="stat"><div class="l">Jami qarz (bizga)</div><div class="v down">${som(total)}</div></div>
   <div class="stat"><div class="l">Qarzdor mijozlar</div><div class="v">${owing} / ${DB.customers.length}</div></div></div>
   <div style="height:12px"></div>
   <div class="row"><input id="q" placeholder="Mijoz qidirish…" value="${esc(debtQuery)}"><button class="btn auto" id="addC">+ Mijoz</button></div>
-  <div style="height:12px"></div>
+  <div class="fq"><button id="fAll" style="${debtOnly?"":"background:var(--pri);color:#fff"}">Hammasi</button><button id="fOwe" style="${debtOnly?"background:var(--pri);color:#fff":""}">Faqat qarzdorlar</button></div>
+  <div style="height:8px"></div>
   <div class="card"><div class="list">${list.length? list.map(c=>{const b=balance(c);return `
     <div class="item click" data-c="${c.id}"><div class="who">${avatar(c.name)}<div><div class="t">${esc(c.name)}</div><div class="s">${esc(c.phone||"")}${c.tx.length?(c.phone?" · ":"")+"oxirgi: "+fmtDate(c.tx[c.tx.length-1].date):""}</div></div></div>
-    <div class="amt ${b>0?"down":b<0?"up":"mut"}">${b>0?som(b):b<0?"+"+som(-b)+" (ortiqcha)":"Qarz yo'q"}</div></div>`}).join("") : '<div class="empty">Mijozlar yo\'q.<br>«+ Mijoz» tugmasi bilan qo\'shing.</div>'}</div></div>`;
+    <div style="display:flex;align-items:center;gap:8px"><div class="amt ${b>0?"down":b<0?"up":"mut"}">${b>0?som(b):b<0?"+"+som(-b)+" (ortiqcha)":"Qarz yo'q"}</div>${b>0?`<button class="rb" data-rm="${c.id}" title="Eslatish">💬</button>`:""}</div></div>`}).join("") : '<div class="empty">Mijozlar yo\'q.<br>«+ Mijoz» tugmasi bilan qo\'shing.</div>'}</div></div>`;
   $("#q").oninput=e=>{ debtQuery=e.target.value; const p=e.target.selectionStart; viewDebt(v); const q=$("#q"); q.focus(); q.setSelectionRange(p,p); };
   $("#addC").onclick=()=>customerForm();
+  $("#fAll").onclick=()=>{ debtOnly=false; viewDebt(v); }; $("#fOwe").onclick=()=>{ debtOnly=true; viewDebt(v); };
+  v.querySelectorAll("[data-rm]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const c=DB.customers.find(x=>x.id===b.dataset.rm); shareModal("Qarzni eslatish",remindMsg(c),c.phone); });
   v.querySelectorAll("[data-c]").forEach(d=>d.onclick=()=>{ openCustomer=d.dataset.c; render(); });
 }
 function customerForm(c){
@@ -1024,10 +1099,11 @@ function viewCustomer(v){
 function txForm(c,type,pre){
   openModal(`<h2>${type==="debt"?"Qarz berish":"Qarz to'lovi"} — ${esc(c.name)}</h2>
    <label>Summa (so'm)</label><input id="ta" inputmode="decimal" value="${pre?pre:""}" placeholder="0">
+   ${(type==="pay"&&pre>0)?`<div class="fq"><button data-f="${pre}">Hammasi: ${num(pre)}</button><button data-f="${Math.round(pre/2)}">Yarmi: ${num(Math.round(pre/2))}</button></div>`:""}
    <label>Sana</label><input id="td" type="date" value="${today()}">
    <label>Izoh (ixtiyoriy)</label><input id="tn" placeholder="Masalan: un, yog'">
    <div class="row" style="margin-top:16px"><button class="btn sec" id="x">Bekor</button><button class="btn" id="ok">Saqlash</button></div>`,
-  s=>{ $("#ta",s).focus(); $("#x",s).onclick=closeModal;
+  s=>{ $("#ta",s).focus(); $("#x",s).onclick=closeModal; s.querySelectorAll("[data-f]").forEach(b=>b.onclick=()=>{ $("#ta",s).value=b.dataset.f; });
     $("#ok",s).onclick=()=>{ const a=val($("#ta",s)); if(a<=0){toast("Summani kiriting");return;}
       c.tx.push({id:uid(),date:$("#td",s).value||today(),type,amount:a,note:$("#tn",s).value.trim()});
       c.tx.sort((p,q)=>p.date<q.date?-1:p.date>q.date?1:0);
@@ -1169,6 +1245,7 @@ function viewSet(v){
     <label>${mode()==="maker"?"Korxona / ustaxona nomi":"Do'kon nomi"}</label><input id="shop" value="${esc(DB.settings.shop)}" placeholder="Masalan: Bunyod savdo">
     <label>Foyda foizi, % (tannarx kiritilmagan savdolar uchun)</label><input id="mg" inputmode="decimal" value="${DB.settings.margin}">
     <button class="btn full" id="sv" style="margin-top:14px">Saqlash</button></div>
+  <details class="card"><summary>🎬 Namuna ma'lumot (ko'rsatish uchun)</summary><div class="mut" style="font-size:13px;margin-bottom:10px">Taqdimot yoki mijozga ko'rsatish uchun ilovani tayyor ma'lumot bilan to'ldiradi. Hammasini bir bosishda tozalash mumkin, sizning haqiqiy yozuvlaringizga tegmaydi.</div>${hasDemo()?'<button class="btn red full" id="demoOff">Namunani tozalash</button>':'<button class="btn full" id="demoOn">Namuna ma\'lumot yuklash</button>'}</details>
   <details class="card"${CL.id?" open":""}><summary>☁ Xodimlar uchun umumiy daftar</summary>${cloudCardHtml()}</details>
   <details class="card"><summary>🛟 Zaxira va savat</summary>
     <div class="mut" style="font-size:13px;margin-bottom:10px">Ilova har kuni o'zi nusxa saqlaydi. O'chirilgan narsa ${TRASH_DAYS} kun savatda turadi.</div>
@@ -1184,6 +1261,8 @@ function viewSet(v){
   if($("#lok")) bindAct(v);
   bindCloud(v);
   v.querySelectorAll("[data-md]").forEach(b=>b.onclick=()=>{ if(b.dataset.md!==mode()){ DB.settings.mode=b.dataset.md; save(); tab="set"; render(); toast("Rejim almashdi ✓"); } });
+  if($("#demoOn")) $("#demoOn").onclick=()=>{ loadDemo(); tab="calc"; render(); toast("Namuna yuklandi ✓"); };
+  if($("#demoOff")) $("#demoOff").onclick=()=>{ clearDemo(); toast("Namuna tozalandi"); };
   $("#trBtn").onclick=trashModal;
   $("#snBtn").onclick=snapModal;
   $("#inBtn").onclick=()=>introModal(0);
