@@ -221,6 +221,8 @@ header{position:relative}.brand{padding-right:56px}
 input.qa{font-size:32px!important;font-weight:800;text-align:center}
 .qh{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}.qh::-webkit-scrollbar{display:none}
 .qh button{flex:none;border:0;border-radius:16px;padding:10px 15px;background:var(--pri-soft);color:var(--pri);font-weight:700;font-size:15px;cursor:pointer;text-align:left;line-height:1.2;font-family:inherit}.qh button small{display:block;font-weight:500;opacity:.8;font-size:12px}.qh button:active{transform:scale(.94)}.qh button.add{background:var(--fill,#eef0f8);color:var(--mut)}
+.amtrow{display:flex;align-items:center;gap:10px}.amtrow input{flex:1;min-width:0;font-size:34px!important;font-weight:800;letter-spacing:-.02em;padding:12px 16px!important;border-radius:18px;margin:0!important}.amtrow .su{font-size:15px;font-weight:700;color:var(--mut);margin-left:-4px}
+.mic.sm{width:50px;height:50px;font-size:22px;box-shadow:0 6px 14px rgba(99,102,241,.35)}.mic.sm:after{display:none}.card .chips{margin-top:12px}.card .chips button{padding:10px 16px;font-size:15px}
 </style>
 </head>
 <body>
@@ -662,8 +664,8 @@ async function snapModal(){
 /* ============ Tanishtiruv (birinchi ochilishda) ============ */
 const IKEY="savdo_intro_v1";
 const INTRO=[
- ["🎤","Gapiring, yozilsin","Mikrofonni bosib «Non uch ming» yoki «Karimga yigirma ming nasiya» deng. Ilova o'zi tushunib yozadi, siz faqat tasdiqlaysiz."],
- ["⚡","30 soniyada tugating","Katta klaviatura yoki tez tugma: bir-ikki bosish, savdo yozildi. Xato bo'lsa, darhol «Bekor qilish»."],
+ ["🛒","Savdoni 2 bosishda yozing","Summani yozing va «Naqd» ni bosing: tayyor. Nasiyaga bersangiz, «Nasiya» ni bosib mijozni tanlang. Xohlasangiz, mikrofon bilan gapirib ham yozasiz."],
+ ["⚡","Tez tugmalar","Tez-tez sotiladigan mollarni qo'shing (Non 4 000). Keyin bitta bosish bilan savdo yoziladi. Xato bo'lsa, darhol «Bekor qilish»."],
  ["📒","Qarz, buyurtma, hisobot","Kim qancha qarz ekani doim ko'z oldingizda. Ustaxona bo'lsangiz, buyurtmalar ham bor. Hammasi internetsiz ishlaydi."]
 ];
 function introModal(i){
@@ -875,13 +877,14 @@ function startVoice(){
 }
 
 function viewCalc(v){
-  const t=today(), y=ymd(new Date(Date.now()-864e5));
-  const T=dayTotals(t), Y=dayTotals(y);
-  let cmp="Kecha savdo bo'lmagan";
-  if(Y.sum>0){ const pc=Math.round((T.sum-Y.sum)/Y.sum*1000)/10; cmp=(pc>=0?"▲ +":"▼ ")+pc+"% kechaga nisbatan"; }
+  const t=today();
+  const T=dayTotals(t);
   const mx=mode()==='maker', eA=mx?null:expAlert(), oA=mx?ordAlert():[];
   const ts=DB.sales.filter(s=>s.date===t);
   const q=DB.quick||[];
+  const fm={}; DB.sales.slice(-300).forEach(s=>{ fm[s.amount]=(fm[s.amount]||0)+1; });
+  let fr=Object.keys(fm).filter(k=>fm[k]>=2).sort((a,b)=>fm[b]-fm[a]).slice(0,4).map(Number);
+  if(fr.length<4) fr=fr.concat([5000,10000,20000,50000].filter(n=>!fr.includes(n))).slice(0,4);
   const wd=["Ya","Du","Se","Ch","Pa","Ju","Sh"], l7=[...Array(7)].map((_,i)=>{ const d=addDays(new Date(),i-6); return {l:wd[d.getDay()],s:dayTotals(ymd(d)).sum}; }), mxv=Math.max(1,...l7.map(x=>x.s));
   const hr=new Date().getHours(), gr=hr<5?"Xayrli tun":hr<12?"Xayrli tong":hr<18?"Xayrli kun":"Xayrli kech";
   v.innerHTML = `
@@ -891,10 +894,10 @@ function viewCalc(v){
     <div class="hv">${som(T.sum)}</div>
     <div class="hrow"><div class="hc"><b>${num(T.pr)}</b><span>Foyda, so'm</span></div><div class="hc"><b>${T.n}</b><span>Savdolar</span></div><div class="hc"><b>${num(totalDebt())}</b><span>Qarz, so'm</span></div></div>
   </div>
-  <div class="card" style="padding:14px">
-    <div class="drow"><div class="kdisp"><b id="kd" class="${kp?"":"e"}">${kp?fmtN(kp):"0"}</b><span>so'm</span></div><button class="mic" id="mic" aria-label="Gapirib yozish">🎤</button></div>
-    ${q.length?`<div class="qh">${q.map(x=>`<button data-q="${x.id}">${esc(x.name)}<small>${som(x.price)}</small></button>`).join("")}<button class="add" id="qEdit">✎</button></div>`:`<div class="qh"><button class="add" id="qEdit">⚡ Tez tugma qo'shish</button></div>`}
-    <div class="kp">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-n="${n}">${n}</button>`).join("")}<button data-n="000" class="fn">000</button><button data-n="0">0</button><button data-n="b" class="fn">⌫</button></div>
+  <div class="card" style="padding:16px">
+    <div class="amtrow"><input id="amt" inputmode="numeric" placeholder="Summa" autocomplete="off"><span class="su">so'm</span><button class="mic sm" id="mic" aria-label="Gapirib yozish">🎤</button></div>
+    ${q.length?`<div class="qh" style="margin-top:12px">${q.map(x=>`<button data-q="${x.id}">${esc(x.name)}<small>${som(x.price)}</small></button>`).join("")}<button class="add" id="qEdit">✎</button></div>`:""}
+    <div class="chips">${fr.map(n=>`<button data-set="${n}">${num(n)}</button>`).join("")}${q.length?"":`<button id="qEdit">⚡ Tez tugma</button>`}</div>
     <div class="dual"><button class="btn" id="addS" style="flex:3">✓ Naqd</button><button class="btn sec" id="addN" style="flex:2">📒 Nasiya</button></div>
   </div>
   ${!hasDemo()&&!DB.sales.length&&!DB.customers.length&&!DB.orders.length?`<div class="card" style="text-align:center"><div style="font-size:30px">👀</div><h3 style="margin:4px 0">Ilova qanday ishlashini ko'ring</h3><div class="mut" style="font-size:13px;margin-bottom:10px">Namuna ma'lumot bilan 1 daqiqada hammasini ko'rasiz. Keyin bir bosishda tozalanadi.</div><button class="btn full" id="ldDemo">Namuna bilan ko'rish</button></div>`:""}
@@ -904,16 +907,18 @@ function viewCalc(v){
     <div class="list" style="margin-top:6px">${ts.length? ts.slice(-4).reverse().map(s=>`
       <div class="item"><div><div class="t">${som(s.amount)} ${s.customerId?'<span class="badge r">nasiya</span>':''}</div>
       <div class="s">${new Date(s.ts).toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}${s.note?" · "+esc(s.note):""}</div></div>
-      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty"><div style="font-size:34px;margin-bottom:6px">🧾</div>Hali savdo yo\'q.<br>Gapiring yoki raqam terib «Naqd» ni bosing.</div>'}</div>
+      <button class="btn red sm" data-del="${s.id}">✕</button></div>`).join("") : '<div class="empty"><div style="font-size:34px;margin-bottom:6px">🧾</div>Hali savdo yo\'q.<br>Summani yozing va «Naqd» ni bosing.</div>'}</div>
   </div>
   <div class="card click" id="to7"><div class="spread"><h3 style="margin:0">Oxirgi 7 kun</h3><span style="color:var(--pri);font-weight:700;font-size:13px">Hisobot →</span></div>
     <div class="bars" style="margin-top:10px">${l7.map((x,i)=>`<div class="${i===6?"t":""}" style="height:${Math.max(5,Math.round(x.s/mxv*100))}%"></div>`).join("")}</div><div class="lbls">${l7.map(x=>`<span>${x.l}</span>`).join("")}</div></div>`;
-  const draw=()=>{ const e=$("#kd",v); e.textContent=kp?fmtN(kp):"0"; e.classList.toggle("e",!kp); };
-  v.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>{ const k=b.dataset.n; if(k==="b") kp=kp.slice(0,-1); else if(kp.length<10&&!(kp===""&&(k==="0"||k==="000"))) kp+=k; buzz(); draw(); });
-  const amt=()=>{ const n=parseInt(kp,10); if(!n){ toast("Summani kiriting yoki gapiring"); return 0; } return n; };
-  $("#addS",v).onclick=()=>{ const n=amt(); if(!n) return; const undo=recordEntry({amount:n,kind:"sale",cid:"",note:""}); kp=""; render(); toast("Savdo ✓ "+som(n),undo); };
+  const ai=$("#amt",v);
+  ai.oninput=()=>{ ai.value=fmtN(ai.value.replace(/\D/g,"")); };
+  const amt=()=>{ const n=parseInt(ai.value.replace(/\D/g,""),10); if(!n){ toast("Summani yozing"); ai.focus(); return 0; } return n; };
+  const go=()=>{ const n=amt(); if(!n) return; const undo=recordEntry({amount:n,kind:"sale",cid:"",note:""}); render(); toast("Savdo ✓ "+som(n),undo); setTimeout(()=>{ const a=$("#amt"); a&&a.focus(); },60); };
+  $("#addS",v).onclick=go; ai.onkeydown=e=>{ if(e.key==="Enter") go(); };
   $("#addN",v).onclick=()=>{ const n=amt(); if(n) quickSheet({amount:n,kind:"debt"}); };
   $("#mic",v).onclick=startVoice;
+  v.querySelectorAll("[data-set]").forEach(b=>b.onclick=()=>{ ai.value=fmtN(+b.dataset.set); });
   $("#rep",v).onclick=()=>shareModal("Hisobotni ulashish",reportText());
   $("#to7",v).onclick=()=>{ tab="stat"; render(); };
   if($("#demoX",v)) $("#demoX",v).onclick=()=>{ clearDemo(); toast("Namuna tozalandi"); };
